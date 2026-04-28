@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ui import View, Button, Modal, TextInput, ChannelSelect, RoleSelect, Select
+import aiohttp
 import json
 import os
 import asyncio
@@ -151,6 +152,9 @@ def carregar_config() -> dict:
     })
     g.setdefault("mediadores",     {})   # {user_id_str: {"tipo": "...", "chave": "...", "nome": "..."}}
     g.setdefault("fila_mediador",  [])   # [user_id_str, ...]
+
+    # Aparência por servidor: {guild_id_str: {"bio": "..."}}
+    data.setdefault("aparencias", {})
 
     # Garantir todas as chaves de modo
     for ch in ALL_MODOS:
@@ -1459,6 +1463,225 @@ async def _publicar_filas(interaction: discord.Interaction, config: dict):
 
 
 # ──────────────────────────────────────────────
+# Aparência (por servidor)
+# ──────────────────────────────────────────────
+
+async def _baixar_imagem(url: str) -> bytes | None:
+    if not url or not url.lower().startswith(("http://", "https://")):
+        return None
+    try:
+        timeout = aiohttp.ClientTimeout(total=20)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    return None
+                cl = resp.headers.get("Content-Length")
+                if cl and int(cl) > 8 * 1024 * 1024:
+                    return None
+                data = await resp.read()
+                if len(data) > 8 * 1024 * 1024:
+                    return None
+                return data
+    except Exception:
+        return None
+
+
+def build_embed_aparencia(guild: discord.Guild, config: dict) -> discord.Embed:
+    me = guild.me if guild else None
+    ap = config.get("aparencias", {}).get(str(guild.id), {}) if guild else {}
+
+    embed = discord.Embed(
+        title="🎨  Aparência do Bot neste Servidor",
+        description=(
+            f"Personalize como o bot aparece em **{guild.name if guild else '?'}**.\n\n"
+            "ℹ️ A **bio** (Sobre Mim) do Discord é global e só pode ser alterada no Developer Portal — aqui ela fica como texto informativo deste servidor."
+        ),
+        color=cor_global(config),
+    )
+    embed.add_field(
+        name="📛 Apelido (nome no servidor)",
+        value=f"`{me.nick}`" if (me and me.nick) else "*— sem apelido (usa o nome global) —*",
+        inline=False,
+    )
+    avatar_status = "✅ definido neste servidor" if (me and getattr(me, "guild_avatar", None)) else "⬜ usando avatar global"
+    banner_status = "✅ definido neste servidor" if (me and getattr(me, "guild_banner", None)) else "⬜ não definido"
+    embed.add_field(name="🖼️ Foto (avatar)", value=avatar_status, inline=True)
+    embed.add_field(name="🎴 Banner",         value=banner_status, inline=True)
+    embed.add_field(name="📝 Bio (informativa)", value=ap.get("bio") or "*— não definida —*", inline=False)
+    if me and me.display_avatar:
+        embed.set_thumbnail(url=me.display_avatar.url)
+    if me and getattr(me, "guild_banner", None):
+        embed.set_image(url=me.guild_banner.url)
+    return embed
+
+
+class ApelidoModal(Modal):
+    def __init__(self, guild):
+        super().__init__(title="Editar Apelido")
+        self.guild = guild
+        atual = guild.me.nick or ""
+        self.nick = TextInput(
+            label="Apelido (vazio = remover)",
+            default=atual, max_length=32, required=False,
+            placeholder="Bot Filas",
+        )
+        self.add_item(self.nick)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        novo = self.nick.value.strip() or None
+        try:
+            await self.guild.me.edit(nick=novo)
+        except discord.Forbidden:
+            await interaction.response.send_message("❌ Bot sem permissão **Change Nickname**.", ephemeral=True); return
+        except discord.HTTPException as e:
+            await interaction.response.send_message(f"❌ Discord recusou: `{e}`", ephemeral=True); return
+        config = carregar_config()
+        try:
+            await interaction.response.edit_message(embed=build_embed_aparencia(self.guild, config), view=AparenciaView())
+        except Exception:
+            await interaction.response.send_message(f"✅ Apelido atualizado: `{novo or '— removido —'}`", ephemeral=True)
+
+
+class AvatarUrlModal(Modal):
+    def __init__(self, guild):
+        super().__init__(title="Editar Avatar (Foto)")
+        self.guild = guild
+        self.url = TextInput(
+            label="URL da imagem (PNG/JPG, ≤ 8MB)",
+            required=True, placeholder="https://...",
+        )
+        self.add_item(self.url)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        data = await _baixar_imagem(self.url.value.strip())
+        if not data:
+            await interaction.followup.send("❌ Não consegui baixar a imagem (URL inválida ou maior que 8MB).", ephemeral=True); return
+        try:
+            await self.guild.me.edit(avatar=data)
+        except discord.HTTPException as e:
+            await interaction.followup.send(f"❌ Discord recusou: `{e}`", ephemeral=True); return
+        config = carregar_config()
+        try:
+            await interaction.message.edit(embed=build_embed_aparencia(self.guild, config), view=AparenciaView())
+        except Exception:
+            pass
+        await interaction.followup.send("✅ Avatar atualizado neste servidor!", ephemeral=True)
+
+
+class BannerUrlModal(Modal):
+    def __init__(self, guild):
+        super().__init__(title="Editar Banner")
+        self.guild = guild
+        self.url = TextInput(
+            label="URL do banner (PNG/JPG/GIF, ≤ 8MB)",
+            required=True, placeholder="https://...",
+        )
+        self.add_item(self.url)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        data = await _baixar_imagem(self.url.value.strip())
+        if not data:
+            await interaction.followup.send("❌ Não consegui baixar a imagem (URL inválida ou maior que 8MB).", ephemeral=True); return
+        try:
+            await self.guild.me.edit(banner=data)
+        except discord.HTTPException as e:
+            await interaction.followup.send(f"❌ Discord recusou: `{e}`", ephemeral=True); return
+        config = carregar_config()
+        try:
+            await interaction.message.edit(embed=build_embed_aparencia(self.guild, config), view=AparenciaView())
+        except Exception:
+            pass
+        await interaction.followup.send("✅ Banner atualizado neste servidor!", ephemeral=True)
+
+
+class BioModal(Modal):
+    def __init__(self, guild, config):
+        super().__init__(title="Editar Bio (informativa)")
+        self.guild = guild
+        ap = config.get("aparencias", {}).get(str(guild.id), {})
+        self.bio = TextInput(
+            label="Texto da bio neste servidor",
+            default=ap.get("bio", ""),
+            style=discord.TextStyle.paragraph,
+            max_length=300, required=False,
+            placeholder="Bot oficial de filas. Suporte: @admin",
+        )
+        self.add_item(self.bio)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        ap = config.setdefault("aparencias", {}).setdefault(str(self.guild.id), {})
+        ap["bio"] = self.bio.value.strip()
+        salvar_config(config)
+        await interaction.response.edit_message(embed=build_embed_aparencia(self.guild, config), view=AparenciaView())
+
+
+class AparenciaView(View):
+    def __init__(self):
+        super().__init__(timeout=300)
+        self.add_item(_BtnEditarApelido())
+        self.add_item(_BtnEditarAvatar())
+        self.add_item(_BtnEditarBanner())
+        self.add_item(_BtnEditarBio())
+        self.add_item(_BtnResetarAparencia())
+
+
+class _BtnEditarApelido(Button):
+    def __init__(self):
+        super().__init__(label="Apelido", emoji="📛", style=discord.ButtonStyle.primary, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(ApelidoModal(interaction.guild))
+
+
+class _BtnEditarAvatar(Button):
+    def __init__(self):
+        super().__init__(label="Foto", emoji="🖼️", style=discord.ButtonStyle.primary, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(AvatarUrlModal(interaction.guild))
+
+
+class _BtnEditarBanner(Button):
+    def __init__(self):
+        super().__init__(label="Banner", emoji="🎴", style=discord.ButtonStyle.primary, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(BannerUrlModal(interaction.guild))
+
+
+class _BtnEditarBio(Button):
+    def __init__(self):
+        super().__init__(label="Bio", emoji="📝", style=discord.ButtonStyle.secondary, row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.send_modal(BioModal(interaction.guild, config))
+
+
+class _BtnResetarAparencia(Button):
+    def __init__(self):
+        super().__init__(label="Resetar tudo", emoji="🔄", style=discord.ButtonStyle.danger, row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            await interaction.guild.me.edit(nick=None, avatar=None, banner=None)
+        except discord.HTTPException:
+            pass
+        config = carregar_config()
+        config.setdefault("aparencias", {}).pop(str(interaction.guild.id), None)
+        salvar_config(config)
+        try:
+            await interaction.message.edit(embed=build_embed_aparencia(interaction.guild, config), view=AparenciaView())
+        except Exception:
+            pass
+        await interaction.followup.send("🔄 Aparência resetada neste servidor (apelido, foto, banner e bio).", ephemeral=True)
+
+
+# ──────────────────────────────────────────────
 # Bot
 # ──────────────────────────────────────────────
 
@@ -1562,6 +1785,20 @@ async def filas_on(interaction: discord.Interaction):
     salvar_config(config)
     await _atualizar_status_filas(interaction.guild, config)
     await interaction.response.send_message("🟢 **Filas ATIVADAS** — os jogadores já podem entrar.", ephemeral=True)
+
+
+@bot.tree.command(name="aparencia", description="Personalize a aparência do bot neste servidor (apelido, foto, banner, bio)")
+async def aparencia(interaction: discord.Interaction):
+    if not await _check_pode_admin(interaction):
+        return
+    if not interaction.guild:
+        await interaction.response.send_message("❌ Use este comando dentro de um servidor.", ephemeral=True); return
+    config = carregar_config()
+    await interaction.response.send_message(
+        embed=build_embed_aparencia(interaction.guild, config),
+        view=AparenciaView(),
+        ephemeral=True,
+    )
 
 
 def _run_health_server():

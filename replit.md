@@ -29,6 +29,12 @@ Located in `bot/` (Python 3.11, discord.py 2.7+). Runs via the `Discord Queue Bo
 - `/painel_mediador` — publica o painel de mediadores no canal atual
 - `/filas_off` — desativa filas globalmente
 - `/filas_on` — reativa filas
+- `/aparencia` — personaliza apelido, foto, banner e bio (informativa) do bot **por servidor**
+
+### Limitações conhecidas (Discord API)
+
+- A "Bio" / "Sobre Mim" do bot é **global** e só pode ser editada no Developer Portal. O `/aparencia` salva a bio como texto informativo deste servidor.
+- Trocas de avatar/banner/apelido são limitadas pela API do Discord (rate limit).
 
 ### Pré-requisitos no Discord Developer Portal
 

@@ -97,14 +97,32 @@
     ]
   },
   "global": {
-    "cargo_adm_id": 1495090824579514540,
-    "categoria_id": 1495090910130606250
+    "cargo_adm_id": 1490011047472533613,
+    "categoria_id": 1490011048466583599,
+    "cargo_max_id": 1490011047484981456,
+    "cargo_mediador_id": 1490011047484981452,
+    "filas_ativas": true,
+    "embed_global": {
+      "banner": "",
+      "thumbnail": "",
+      "cor": "#FFFF00"
+    },
+    "mediadores": {
+      "1479876596235239426": {
+        "nome": "Batata",
+        "tipo": "email",
+        "chave": "111111111"
+      }
+    },
+    "fila_mediador": [
+      "1479876596235239426"
+    ]
   },
   "Mobile_1v1": {
     "titulo": "Mobile 1v1",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1495091006889267341,
+    "canal_id": 1490011049213169945,
     "botao1": {
       "emoji": "🎮",
       "label": "Opção 1"
@@ -122,6 +140,11 @@
       {
         "id": "33401fe4b5",
         "valor": "R$ 0,25",
+        "jogadores": []
+      },
+      {
+        "id": "e4051c8d1c",
+        "valor": "R$ 10,00",
         "jogadores": []
       }
     ]
