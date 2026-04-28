@@ -163,11 +163,20 @@ def carregar_config() -> dict:
 
     # Embeds personalizáveis dos painéis
     g.setdefault("painel_streamer_embed", {
-        "titulo":    "🎬  Fila do Streamer",
+        "titulo":    "🎮 Fila Contra 5 INVIT 3 NO PIX! | #1K",
         "descricao": "",   # vazio = usa texto padrão
+        "subtitulo": "SO FREE FIRE",
+        "instrucoes": "• Clique em **Jogar Contra** para abrir um desafio.\n• O desafio expira automaticamente se não for aceito.",
+        "info_jogo":  "Jogando contra membros em live, tiktok @olipesick",
         "banner":    "",
         "thumbnail": "",
     })
+    # Migração: garantir campos novos em configs antigos
+    _pse = g["painel_streamer_embed"]
+    _pse.setdefault("subtitulo",  "SO FREE FIRE")
+    _pse.setdefault("instrucoes", "• Clique em **Jogar Contra** para abrir um desafio.\n• O desafio expira automaticamente se não for aceito.")
+    _pse.setdefault("info_jogo",  "Jogando contra membros em live, tiktok @olipesick")
+
     g.setdefault("painel_mediador_embed", {
         "titulo":    "🤝  Painel de Mediadores",
         "descricao": "",
@@ -177,11 +186,17 @@ def carregar_config() -> dict:
 
     # Botões personalizáveis do painel do streamer
     g.setdefault("painel_streamer_botoes", {
-        "entrar":  {"emoji": "✅", "label": "Entrar na Fila"},
-        "sair":    {"emoji": "❌", "label": "Sair da Fila"},
-        "proximo": {"emoji": "🎮", "label": "Chamar Próximo"},
-        "toggle":  {"emoji": "🔁", "label": "Abrir/Fechar"},
+        "jogar_contra": {"emoji": "🚪", "label": "Jogar Contra"},
+        "gear":         {"emoji": "⚙️", "label": ""},
+        "entrar":       {"emoji": "✅", "label": "Entrar na Fila"},
+        "sair":         {"emoji": "❌", "label": "Sair da Fila"},
+        "proximo":      {"emoji": "🎮", "label": "Chamar Próximo"},
+        "toggle":       {"emoji": "🔁", "label": "Abrir/Fechar"},
     })
+    # Migração: garantir botões novos em configs antigos
+    _psb = g["painel_streamer_botoes"]
+    _psb.setdefault("jogar_contra", {"emoji": "🚪", "label": "Jogar Contra"})
+    _psb.setdefault("gear",         {"emoji": "⚙️", "label": ""})
 
     # Aparência por servidor: {guild_id_str: {"bio": "..."}}
     data.setdefault("aparencias", {})
@@ -1589,44 +1604,52 @@ def build_embed_painel_streamer(config: dict) -> discord.Embed:
     g = config.get("global", {})
     s = g.get("streamer", {})
     streamer_uid = s.get("user_id")
-    modo         = s.get("modo", "1v1")
-    fila         = s.get("fila", [])
     aberta       = s.get("aberta", False)
 
-    custom    = g.get("painel_streamer_embed", {})
-    titulo    = custom.get("titulo")    or "🎬  Fila do Streamer"
-    descricao = custom.get("descricao") or "Entre na fila para **enfrentar o streamer**!"
+    custom     = g.get("painel_streamer_embed", {})
+    titulo     = custom.get("titulo")     or "🎮 Fila Contra 5 INVIT 3 NO PIX! | #1K"
+    subtitulo  = custom.get("subtitulo")  or ""
+    instrucoes = custom.get("instrucoes") or "• Clique em **Jogar Contra** para abrir um desafio.\n• O desafio expira automaticamente se não for aceito."
+    info_jogo  = custom.get("info_jogo")  or ""
 
-    status_txt = "🟢 **ABERTA**" if aberta else "🛑 **FECHADA**"
-    streamer_txt = f"<@{streamer_uid}>" if streamer_uid else "*— não definido —*"
+    # Texto resumido do título sem emoji para usar no corpo (igual à imagem)
+    titulo_sem_emoji = re.sub(r'^\s*(<a?:\w+:\d+>|[^\w\s])\s*', '', titulo).strip() or titulo
+
+    streamer_link = f"`{titulo_sem_emoji}`"
+
+    descricao_lines = [
+        f"• **Streamer:** {streamer_link}",
+    ]
+    if info_jogo:
+        descricao_lines.append(f"• {info_jogo}")
+    if subtitulo:
+        descricao_lines.append("")
+        descricao_lines.append(subtitulo)
+
+    descricao = "\n".join(descricao_lines)
 
     embed = discord.Embed(
         title=titulo,
         description=descricao,
         color=cor_global(config),
     )
-    embed.add_field(name="🎥 Streamer", value=streamer_txt, inline=True)
-    embed.add_field(name="🎮 Modo",     value=f"{EMOJI_MODO.get(modo, '🎮')} {modo}", inline=True)
-    embed.add_field(name="📡 Status",   value=status_txt, inline=True)
 
-    if fila:
-        n_pull = JOGADORES_MODO[modo] // 2  # quantos serão chamados por vez
-        linhas = []
-        for i, uid in enumerate(fila[:25]):
-            marca = "🔜" if i < n_pull else f"`{i+1}.`"
-            linhas.append(f"{marca} <@{uid}>")
-        if len(fila) > 25:
-            linhas.append(f"*... e mais {len(fila) - 25} esperando*")
-        embed.add_field(name=f"📋 Fila ({len(fila)})", value="\n".join(linhas), inline=False)
-        embed.add_field(
-            name="⚡ Próximos a serem chamados",
-            value=f"**{min(n_pull, len(fila))}** pessoa(s) (modo {modo})",
-            inline=False,
-        )
+    # Status (com bolinha colorida igual à imagem)
+    if aberta:
+        status_txt = "🟢 Situação: AO VIVO"
+        status_curto = "AO VIVO"
     else:
-        embed.add_field(name="📋 Fila", value="*— vazia —*", inline=False)
+        status_txt = "🔴 Situação: OFFLINE"
+        status_curto = "OFFLINE"
+    embed.add_field(name="Status", value=status_txt, inline=False)
 
-    embed.set_footer(text="Use os botões abaixo para entrar/sair. Streamer e admins controlam o painel.")
+    # Como funciona
+    embed.add_field(name="Como funciona", value=instrucoes, inline=False)
+
+    # Footer estilo da imagem: título • status • data
+    from datetime import datetime
+    data_atual = datetime.now().strftime("%d/%m/%Y %H:%M")
+    embed.set_footer(text=f"{titulo_sem_emoji} • {status_curto} • {data_atual}")
 
     thumb  = custom.get("thumbnail") or g.get("embed_global", {}).get("thumbnail", "")
     banner = custom.get("banner")    or g.get("embed_global", {}).get("banner", "")
@@ -1651,13 +1674,95 @@ async def _atualizar_painel_streamer(config: dict):
 
 
 class PainelStreamerView(View):
+    """Painel público — apenas 2 botões visíveis: Jogar Contra + Engrenagem (config)."""
     def __init__(self):
         super().__init__(timeout=None)
-        self.add_item(_BtnStreamerEntrar())
+        self.add_item(_BtnStreamerJogarContra())
+        self.add_item(_BtnStreamerGear())
+
+
+class _BtnStreamerJogarContra(Button):
+    def __init__(self):
+        b = carregar_config().get("global", {}).get("painel_streamer_botoes", {}).get("jogar_contra", {})
+        super().__init__(
+            label=b.get("label") or "Jogar Contra",
+            emoji=to_discord_emoji(b.get("emoji") or "🚪"),
+            style=discord.ButtonStyle.success,
+            custom_id="streamer_jogar_contra",
+            row=0,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        s = config["global"]["streamer"]
+        if not s.get("aberta"):
+            await interaction.response.send_message("🛑 A fila do streamer está **fechada** no momento.", ephemeral=True); return
+        if not s.get("user_id"):
+            await interaction.response.send_message("⚠️ Nenhum streamer foi definido ainda.", ephemeral=True); return
+        if str(interaction.user.id) == str(s["user_id"]):
+            await interaction.response.send_message("⚠️ Você é o **streamer**, não pode desafiar a si mesmo!", ephemeral=True); return
+
+        uid = str(interaction.user.id)
+        if uid in s["fila"]:
+            await interaction.response.send_message(
+                f"⚠️ Você já está na fila! Posição: **#{s['fila'].index(uid)+1}**",
+                view=_AcoesJogadorView(),
+                ephemeral=True,
+            ); return
+
+        s["fila"].append(uid)
+        salvar_config(config)
+        await _atualizar_painel_streamer(config)
+        await interaction.response.send_message(
+            f"✅ Desafio aberto! Você está na posição **#{len(s['fila'])}**.",
+            view=_AcoesJogadorView(),
+            ephemeral=True,
+        )
+
+
+class _BtnStreamerGear(Button):
+    def __init__(self):
+        b = carregar_config().get("global", {}).get("painel_streamer_botoes", {}).get("gear", {})
+        super().__init__(
+            label=b.get("label") or "",
+            emoji=to_discord_emoji(b.get("emoji") or "⚙️"),
+            style=discord.ButtonStyle.secondary,
+            custom_id="streamer_gear",
+            row=0,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        # Streamer ou admin → painel completo. Usuário comum → ações de jogador.
+        if _streamer_pode_controlar(interaction.user, config):
+            await interaction.response.send_message(
+                "⚙️ **Configurações do painel do streamer**\nUse os botões abaixo para gerenciar a fila e personalizar o painel.",
+                view=PainelGearStreamerView(),
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                "ℹ️ Use os botões abaixo:",
+                view=_AcoesJogadorView(),
+                ephemeral=True,
+            )
+
+
+class _AcoesJogadorView(View):
+    """Ações ephemeral para jogador comum (sair da fila)."""
+    def __init__(self):
+        super().__init__(timeout=120)
         self.add_item(_BtnStreamerSair())
+
+
+class PainelGearStreamerView(View):
+    """Painel ephemeral aberto pela engrenagem — apenas streamer/admin."""
+    def __init__(self):
+        super().__init__(timeout=300)
         self.add_item(_BtnStreamerProximo())
         self.add_item(_BtnStreamerAbrirFechar())
-        self.add_item(_BtnStreamerConfig())
+        self.add_item(_BtnStreamerSair())
+        self.add_item(_BtnStreamerConfigurar())
         self.add_item(_BtnEditarEmbedStreamer())
         self.add_item(_BtnEditarBotoesStreamer())
 
@@ -1670,9 +1775,7 @@ class _BtnEditarEmbedStreamer(Button):
         config = carregar_config()
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Apenas administradores podem editar o embed.", ephemeral=True); return
-        await interaction.response.send_modal(
-            EditarPainelEmbedModal("painel_streamer_embed", "🎬  Fila do Streamer", alvo="streamer")
-        )
+        await interaction.response.send_modal(EditarEmbedStreamerModal())
 
 
 class _BtnEditarBotoesStreamer(Button):
@@ -1683,23 +1786,145 @@ class _BtnEditarBotoesStreamer(Button):
         config = carregar_config()
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Apenas administradores podem editar os botões.", ephemeral=True); return
-        await interaction.response.send_modal(EditarBotoesStreamerModal())
+        await interaction.response.send_message(
+            "🎨 **Personalizar botões do painel do streamer**\nEscolha o que deseja editar:",
+            view=EditarBotoesStreamerMenuView(),
+            ephemeral=True,
+        )
 
 
-class EditarBotoesStreamerModal(Modal):
-    """Modal para personalizar os 4 botões do painel do streamer (emoji + nome)."""
+class EditarEmbedStreamerModal(Modal):
+    """Modal para editar o embed do painel do streamer (estilo da imagem)."""
     def __init__(self):
-        super().__init__(title="Editar Botões — Streamer")
+        super().__init__(title="Editar Embed — Streamer")
+        cur = carregar_config().get("global", {}).get("painel_streamer_embed", {})
+        self.titulo = TextInput(
+            label="Título (cabeçalho do painel)",
+            default=cur.get("titulo") or "🎮 Fila Contra 5 INVIT 3 NO PIX! | #1K",
+            max_length=200,
+            required=True,
+            placeholder="🎮 Fila Contra 5 INVIT 3 NO PIX! | #1K",
+        )
+        self.subtitulo = TextInput(
+            label="Subtítulo (ex: SO FREE FIRE)",
+            default=cur.get("subtitulo", ""),
+            required=False,
+            max_length=200,
+            placeholder="SO FREE FIRE",
+        )
+        self.info_jogo = TextInput(
+            label="Linha de info (ex: Jogando contra...)",
+            default=cur.get("info_jogo", ""),
+            required=False,
+            max_length=300,
+            placeholder="Jogando contra membros em live, tiktok @olipesick",
+        )
+        self.instrucoes = TextInput(
+            label="Como funciona (use • para bullets)",
+            default=cur.get("instrucoes") or "• Clique em **Jogar Contra** para abrir um desafio.\n• O desafio expira automaticamente se não for aceito.",
+            required=False,
+            max_length=1000,
+            style=discord.TextStyle.paragraph,
+        )
+        self.thumbnail = TextInput(
+            label="Thumbnail (URL — vazio = global)",
+            default=cur.get("thumbnail", ""),
+            required=False,
+            max_length=500,
+            placeholder="https://...png",
+        )
+        for it in (self.titulo, self.subtitulo, self.info_jogo, self.instrucoes, self.thumbnail):
+            self.add_item(it)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
+        cur = config["global"].setdefault("painel_streamer_embed", {})
+        cur["titulo"]     = self.titulo.value.strip()
+        cur["subtitulo"]  = self.subtitulo.value.strip()
+        cur["info_jogo"]  = self.info_jogo.value.strip()
+        cur["instrucoes"] = self.instrucoes.value.strip()
+        cur["thumbnail"]  = self.thumbnail.value.strip()
+        salvar_config(config)
+        await _atualizar_painel_streamer(config)
+        await interaction.response.send_message("✅ Embed do painel do streamer atualizado!", ephemeral=True)
+
+
+class EditarBotoesStreamerMenuView(View):
+    """Menu de seleção do que personalizar (botão principal ou administrativos)."""
+    def __init__(self):
+        super().__init__(timeout=180)
+        self.add_item(_BtnAbrirEditarPrincipal())
+        self.add_item(_BtnAbrirEditarAdmin())
+
+
+class _BtnAbrirEditarPrincipal(Button):
+    def __init__(self):
+        super().__init__(label="Botão Principal + Engrenagem", emoji="🎮", style=discord.ButtonStyle.primary, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(EditarBotoesStreamerPrincipalModal())
+
+
+class _BtnAbrirEditarAdmin(Button):
+    def __init__(self):
+        super().__init__(label="Botões Administrativos", emoji="🛠️", style=discord.ButtonStyle.secondary, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(EditarBotoesStreamerAdminModal())
+
+
+class EditarBotoesStreamerPrincipalModal(Modal):
+    """Personaliza o botão 'Jogar Contra' (visível no painel) e o ícone da engrenagem."""
+    def __init__(self):
+        super().__init__(title="Editar Botão Jogar Contra")
+        b = carregar_config().get("global", {}).get("painel_streamer_botoes", {})
+        def cur(k, de, dl):
+            x = b.get(k, {})
+            return f"{x.get('emoji') or de} {x.get('label') or dl}".strip()
+
+        self.b_jogar = TextInput(
+            label="Botão Jogar Contra (emoji + texto)",
+            default=cur("jogar_contra", "🚪", "Jogar Contra"),
+            max_length=100, required=True,
+            placeholder="🚪 Jogar Contra  ou  <:emoji:id> Texto",
+        )
+        self.b_gear = TextInput(
+            label="Engrenagem — só emoji (ex: ⚙️)",
+            default=(b.get("gear", {}) or {}).get("emoji") or "⚙️",
+            max_length=20, required=True,
+            placeholder="⚙️  ou  <:emoji:id>",
+        )
+        self.add_item(self.b_jogar)
+        self.add_item(self.b_gear)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
+        b = config["global"].setdefault("painel_streamer_botoes", {})
+        e_j, l_j = parse_emoji_label(self.b_jogar.value)
+        b["jogar_contra"] = {"emoji": e_j, "label": l_j}
+        b["gear"] = {"emoji": self.b_gear.value.strip() or "⚙️", "label": ""}
+        salvar_config(config)
+        await _atualizar_painel_streamer(config)
+        await interaction.response.send_message("✅ Botão **Jogar Contra** e engrenagem atualizados!", ephemeral=True)
+
+
+class EditarBotoesStreamerAdminModal(Modal):
+    """Personaliza os botões internos (sair, próximo, abrir/fechar) do painel ephemeral."""
+    def __init__(self):
+        super().__init__(title="Editar Botões Administrativos")
         b = carregar_config().get("global", {}).get("painel_streamer_botoes", {})
         def cur(k, de, dl):
             x = b.get(k, {})
             return f"{x.get('emoji') or de} {x.get('label') or dl}"
 
-        self.b_entrar  = TextInput(label="Botão Entrar",         default=cur("entrar",  "✅", "Entrar na Fila"),  max_length=100, required=True, placeholder="✅ Entrar na Fila")
-        self.b_sair    = TextInput(label="Botão Sair",           default=cur("sair",    "❌", "Sair da Fila"),    max_length=100, required=True, placeholder="❌ Sair da Fila")
-        self.b_proximo = TextInput(label="Botão Chamar Próximo", default=cur("proximo", "🎮", "Chamar Próximo"),  max_length=100, required=True, placeholder="🎮 Chamar Próximo")
-        self.b_toggle  = TextInput(label="Botão Abrir/Fechar",   default=cur("toggle",  "🔁", "Abrir/Fechar"),    max_length=100, required=True, placeholder="🔁 Abrir/Fechar")
-        for it in (self.b_entrar, self.b_sair, self.b_proximo, self.b_toggle):
+        self.b_sair    = TextInput(label="Botão Sair da Fila",     default=cur("sair",    "❌", "Sair da Fila"),    max_length=100, required=True, placeholder="❌ Sair da Fila")
+        self.b_proximo = TextInput(label="Botão Chamar Próximo",   default=cur("proximo", "🎮", "Chamar Próximo"),  max_length=100, required=True, placeholder="🎮 Chamar Próximo")
+        self.b_toggle  = TextInput(label="Botão Abrir/Fechar Fila",default=cur("toggle",  "🔁", "Abrir/Fechar"),    max_length=100, required=True, placeholder="🔁 Abrir/Fechar")
+        for it in (self.b_sair, self.b_proximo, self.b_toggle):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -1707,44 +1932,13 @@ class EditarBotoesStreamerModal(Modal):
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
         b = config["global"].setdefault("painel_streamer_botoes", {})
-        for k, txt in (("entrar", self.b_entrar.value), ("sair", self.b_sair.value),
-                       ("proximo", self.b_proximo.value), ("toggle", self.b_toggle.value)):
+        for k, txt in (("sair", self.b_sair.value),
+                       ("proximo", self.b_proximo.value),
+                       ("toggle", self.b_toggle.value)):
             e, lbl = parse_emoji_label(txt)
             b[k] = {"emoji": e, "label": lbl}
         salvar_config(config)
-        await _atualizar_painel_streamer(config)
-        await interaction.response.send_message("✅ Botões do painel do streamer atualizados!", ephemeral=True)
-
-
-class _BtnStreamerEntrar(Button):
-    def __init__(self):
-        b = carregar_config().get("global", {}).get("painel_streamer_botoes", {}).get("entrar", {})
-        super().__init__(
-            label=b.get("label") or "Entrar na Fila",
-            emoji=to_discord_emoji(b.get("emoji") or "✅"),
-            style=discord.ButtonStyle.success,
-            custom_id="streamer_entrar",
-            row=0,
-        )
-
-    async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
-        s = config["global"]["streamer"]
-        if not s.get("aberta"):
-            await interaction.response.send_message("🛑 A fila do streamer está **fechada** no momento.", ephemeral=True); return
-        if not s.get("user_id"):
-            await interaction.response.send_message("⚠️ Nenhum streamer foi definido ainda.", ephemeral=True); return
-        if str(interaction.user.id) == str(s["user_id"]):
-            await interaction.response.send_message("⚠️ Você é o **streamer**, não pode entrar na própria fila!", ephemeral=True); return
-
-        uid = str(interaction.user.id)
-        if uid in s["fila"]:
-            await interaction.response.send_message("⚠️ Você já está na fila!", ephemeral=True); return
-
-        s["fila"].append(uid)
-        salvar_config(config)
-        await _atualizar_painel_streamer(config)
-        await interaction.response.send_message(f"✅ Entrou na fila! Posição: **#{len(s['fila'])}**", ephemeral=True)
+        await interaction.response.send_message("✅ Botões administrativos atualizados!", ephemeral=True)
 
 
 class _BtnStreamerSair(Button):
@@ -1754,7 +1948,6 @@ class _BtnStreamerSair(Button):
             label=b.get("label") or "Sair da Fila",
             emoji=to_discord_emoji(b.get("emoji") or "❌"),
             style=discord.ButtonStyle.danger,
-            custom_id="streamer_sair",
             row=0,
         )
 
@@ -1777,8 +1970,7 @@ class _BtnStreamerProximo(Button):
             label=b.get("label") or "Chamar Próximo",
             emoji=to_discord_emoji(b.get("emoji") or "🎮"),
             style=discord.ButtonStyle.primary,
-            custom_id="streamer_proximo",
-            row=1,
+            row=0,
         )
 
     async def callback(self, interaction: discord.Interaction):
@@ -1813,7 +2005,6 @@ class _BtnStreamerAbrirFechar(Button):
             label=b.get("label") or "Abrir/Fechar",
             emoji=to_discord_emoji(b.get("emoji") or "🔁"),
             style=discord.ButtonStyle.secondary,
-            custom_id="streamer_toggle",
             row=1,
         )
 
@@ -1831,9 +2022,9 @@ class _BtnStreamerAbrirFechar(Button):
         )
 
 
-class _BtnStreamerConfig(Button):
+class _BtnStreamerConfigurar(Button):
     def __init__(self):
-        super().__init__(label="Configurar", emoji="⚙️", style=discord.ButtonStyle.secondary, custom_id="streamer_config", row=1)
+        super().__init__(label="Configurar Streamer/Modo", emoji="🎥", style=discord.ButtonStyle.secondary, row=1)
 
     async def callback(self, interaction: discord.Interaction):
         config = carregar_config()
