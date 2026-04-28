@@ -958,7 +958,7 @@ class _BtnEditarBotoes(Button):
 
 class _BtnEditarLayout(Button):
     def __init__(self, ch, painel_msg):
-        super().__init__(label="📝  Texto/Layout", style=discord.ButtonStyle.secondary, row=1)
+        super().__init__(label="📝  Texto/Layout", style=discord.ButtonStyle.secondary, row=2)
         self.ch, self.painel_msg = ch, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -968,7 +968,7 @@ class _BtnEditarLayout(Button):
 
 class _BtnVerPlaceholders(Button):
     def __init__(self, ch):
-        super().__init__(label="❓  Placeholders", style=discord.ButtonStyle.secondary, row=1)
+        super().__init__(label="❓  Placeholders", style=discord.ButtonStyle.secondary, row=2)
         self.ch = ch
 
     async def callback(self, interaction: discord.Interaction):
