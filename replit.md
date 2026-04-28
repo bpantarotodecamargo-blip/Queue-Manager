@@ -31,6 +31,16 @@ Located in `bot/` (Python 3.11, discord.py 2.7+). Runs via the `Discord Queue Bo
 - `/filas_on` — reativa filas
 - `/aparencia` — personaliza apelido, foto, banner e bio (informativa) do bot **por servidor**
 - `/vencedor <usuario>` — define o vencedor da partida atual (canal `partida-...`), exibe embed de vitória e fecha o canal em 10 segundos. Disponível para admin/permissão máxima/mediador.
+- `/painel_streamer` — publica o painel da fila do streamer no canal atual.
+- `/streamer <usuario>` — define quem é o streamer da fila (admin only).
+
+### Fila do Streamer
+
+Painel persistente onde jogadores entram para enfrentar o streamer:
+- **Modos:** 1v1, 2v2, 3v3, 4v4 — define quantas pessoas são chamadas por vez (modo/2).
+- **Botões:** Entrar, Sair, Chamar Próximo (streamer/admin), Abrir/Fechar (streamer/admin), Configurar (admin).
+- Quando o streamer chama o próximo, é criado um canal `streamer-<modo>-<id>` com permissões só para o streamer + os chamados, com mention de todos.
+- Use `/vencedor` no canal da partida para fechar.
 
 ### Limitações conhecidas (Discord API)
 

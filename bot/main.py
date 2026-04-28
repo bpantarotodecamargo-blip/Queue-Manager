@@ -153,6 +153,14 @@ def carregar_config() -> dict:
     g.setdefault("mediadores",     {})   # {user_id_str: {"tipo": "...", "chave": "...", "nome": "..."}}
     g.setdefault("fila_mediador",  [])   # [user_id_str, ...]
 
+    # Fila do Streamer
+    g.setdefault("streamer", {
+        "user_id": None,    # quem é o streamer
+        "modo":    "1v1",   # 1v1 / 2v2 / 3v3 / 4v4
+        "fila":    [],      # [user_id_str, ...] — pessoas esperando enfrentar
+        "aberta":  False,   # se está aceitando entradas
+    })
+
     # Aparência por servidor: {guild_id_str: {"bio": "..."}}
     data.setdefault("aparencias", {})
 
@@ -1463,6 +1471,278 @@ async def _publicar_filas(interaction: discord.Interaction, config: dict):
 
 
 # ──────────────────────────────────────────────
+# Fila do Streamer
+# ──────────────────────────────────────────────
+
+_painel_streamer_msgs: dict[int, int] = {}   # {channel_id: message_id}
+
+MODOS_STREAMER = ["1v1", "2v2", "3v3", "4v4"]
+
+
+def _streamer_pode_controlar(member: discord.Member, config: dict) -> bool:
+    """True se for admin/permissão máxima OU o próprio streamer."""
+    if usuario_pode_admin(member, config):
+        return True
+    s_id = config.get("global", {}).get("streamer", {}).get("user_id")
+    return bool(s_id) and str(member.id) == str(s_id)
+
+
+def build_embed_painel_streamer(config: dict) -> discord.Embed:
+    s = config.get("global", {}).get("streamer", {})
+    streamer_uid = s.get("user_id")
+    modo         = s.get("modo", "1v1")
+    fila         = s.get("fila", [])
+    aberta       = s.get("aberta", False)
+
+    status_txt = "🟢 **ABERTA**" if aberta else "🛑 **FECHADA**"
+    streamer_txt = f"<@{streamer_uid}>" if streamer_uid else "*— não definido —*"
+
+    embed = discord.Embed(
+        title="🎬  Fila do Streamer",
+        description=(
+            f"Entre na fila para **enfrentar o streamer**!\n\n"
+            f"**🎥 Streamer:** {streamer_txt}\n"
+            f"**🎮 Modo:** {EMOJI_MODO.get(modo, '🎮')} {modo}\n"
+            f"**📡 Status:** {status_txt}"
+        ),
+        color=cor_global(config),
+    )
+
+    if fila:
+        n_pull = JOGADORES_MODO[modo] // 2  # quantos serão chamados por vez
+        linhas = []
+        for i, uid in enumerate(fila[:25]):
+            marca = "🔜" if i < n_pull else f"`{i+1}.`"
+            linhas.append(f"{marca} <@{uid}>")
+        if len(fila) > 25:
+            linhas.append(f"*... e mais {len(fila) - 25} esperando*")
+        embed.add_field(name=f"📋 Fila ({len(fila)})", value="\n".join(linhas), inline=False)
+        embed.add_field(
+            name="⚡ Próximos a serem chamados",
+            value=f"**{min(n_pull, len(fila))}** pessoa(s) (modo {modo})",
+            inline=False,
+        )
+    else:
+        embed.add_field(name="📋 Fila", value="*— vazia —*", inline=False)
+
+    embed.set_footer(text="Use os botões abaixo para entrar/sair. Streamer e admins controlam o painel.")
+    return embed
+
+
+async def _atualizar_painel_streamer(config: dict):
+    """Atualiza todas as mensagens de painel do streamer publicadas."""
+    for canal_id, msg_id in list(_painel_streamer_msgs.items()):
+        try:
+            canal = bot.get_channel(canal_id)
+            if not canal:
+                continue
+            msg = await canal.fetch_message(msg_id)
+            await msg.edit(embed=build_embed_painel_streamer(config), view=PainelStreamerView())
+        except Exception:
+            pass
+
+
+class PainelStreamerView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(_BtnStreamerEntrar())
+        self.add_item(_BtnStreamerSair())
+        self.add_item(_BtnStreamerProximo())
+        self.add_item(_BtnStreamerAbrirFechar())
+        self.add_item(_BtnStreamerConfig())
+
+
+class _BtnStreamerEntrar(Button):
+    def __init__(self):
+        super().__init__(label="Entrar na Fila", emoji="✅", style=discord.ButtonStyle.success, custom_id="streamer_entrar", row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        s = config["global"]["streamer"]
+        if not s.get("aberta"):
+            await interaction.response.send_message("🛑 A fila do streamer está **fechada** no momento.", ephemeral=True); return
+        if not s.get("user_id"):
+            await interaction.response.send_message("⚠️ Nenhum streamer foi definido ainda.", ephemeral=True); return
+        if str(interaction.user.id) == str(s["user_id"]):
+            await interaction.response.send_message("⚠️ Você é o **streamer**, não pode entrar na própria fila!", ephemeral=True); return
+
+        uid = str(interaction.user.id)
+        if uid in s["fila"]:
+            await interaction.response.send_message("⚠️ Você já está na fila!", ephemeral=True); return
+
+        s["fila"].append(uid)
+        salvar_config(config)
+        await _atualizar_painel_streamer(config)
+        await interaction.response.send_message(f"✅ Entrou na fila! Posição: **#{len(s['fila'])}**", ephemeral=True)
+
+
+class _BtnStreamerSair(Button):
+    def __init__(self):
+        super().__init__(label="Sair da Fila", emoji="❌", style=discord.ButtonStyle.danger, custom_id="streamer_sair", row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        s = config["global"]["streamer"]
+        uid = str(interaction.user.id)
+        if uid not in s.get("fila", []):
+            await interaction.response.send_message("⚠️ Você não está na fila!", ephemeral=True); return
+        s["fila"].remove(uid)
+        salvar_config(config)
+        await _atualizar_painel_streamer(config)
+        await interaction.response.send_message("✅ Você saiu da fila.", ephemeral=True)
+
+
+class _BtnStreamerProximo(Button):
+    def __init__(self):
+        super().__init__(label="Chamar Próximo", emoji="🎮", style=discord.ButtonStyle.primary, custom_id="streamer_proximo", row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not _streamer_pode_controlar(interaction.user, config):
+            await interaction.response.send_message("❌ Apenas o **streamer** ou **admin** podem chamar o próximo.", ephemeral=True); return
+
+        s = config["global"]["streamer"]
+        modo = s.get("modo", "1v1")
+        n_pull = JOGADORES_MODO[modo] // 2
+
+        if len(s.get("fila", [])) < 1:
+            await interaction.response.send_message("⚠️ A fila está vazia!", ephemeral=True); return
+
+        chamados = s["fila"][:n_pull]
+        s["fila"] = s["fila"][n_pull:]
+        salvar_config(config)
+        await _atualizar_painel_streamer(config)
+
+        await interaction.response.defer(ephemeral=True)
+        await _criar_canal_partida_streamer(interaction.guild, config, s["user_id"], chamados, modo)
+        await interaction.followup.send(
+            f"✅ Chamado(s) **{len(chamados)}** jogador(es) — canal de partida criado!",
+            ephemeral=True,
+        )
+
+
+class _BtnStreamerAbrirFechar(Button):
+    def __init__(self):
+        super().__init__(label="Abrir/Fechar", emoji="🔁", style=discord.ButtonStyle.secondary, custom_id="streamer_toggle", row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not _streamer_pode_controlar(interaction.user, config):
+            await interaction.response.send_message("❌ Apenas o **streamer** ou **admin** podem alterar o status.", ephemeral=True); return
+        s = config["global"]["streamer"]
+        s["aberta"] = not s.get("aberta", False)
+        salvar_config(config)
+        await _atualizar_painel_streamer(config)
+        await interaction.response.send_message(
+            "🟢 Fila **ABERTA**!" if s["aberta"] else "🛑 Fila **FECHADA**.",
+            ephemeral=True,
+        )
+
+
+class _BtnStreamerConfig(Button):
+    def __init__(self):
+        super().__init__(label="Configurar", emoji="⚙️", style=discord.ButtonStyle.secondary, custom_id="streamer_config", row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Apenas administradores podem configurar.", ephemeral=True); return
+        await interaction.response.send_message(
+            "⚙️ **Configurar fila do streamer**",
+            view=ConfigStreamerView(),
+            ephemeral=True,
+        )
+
+
+class ConfigStreamerView(View):
+    def __init__(self):
+        super().__init__(timeout=180)
+        self.add_item(_StreamerUserSelect())
+        self.add_item(_StreamerModoSelect())
+        self.add_item(_BtnLimparFilaStreamer())
+
+
+class _StreamerUserSelect(discord.ui.UserSelect):
+    def __init__(self):
+        super().__init__(placeholder="🎥 Selecione o streamer...", min_values=0, max_values=1, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        config["global"]["streamer"]["user_id"] = self.values[0].id if self.values else None
+        salvar_config(config)
+        await _atualizar_painel_streamer(config)
+        txt = f"✅ Streamer definido: {self.values[0].mention}" if self.values else "✅ Streamer removido."
+        await interaction.response.send_message(txt, ephemeral=True)
+
+
+class _StreamerModoSelect(Select):
+    def __init__(self):
+        opts = [discord.SelectOption(label=m, value=m, emoji=EMOJI_MODO[m]) for m in MODOS_STREAMER]
+        super().__init__(placeholder="🎮 Selecione o modo...", options=opts, min_values=1, max_values=1, row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        config["global"]["streamer"]["modo"] = self.values[0]
+        salvar_config(config)
+        await _atualizar_painel_streamer(config)
+        await interaction.response.send_message(f"✅ Modo definido: **{self.values[0]}**", ephemeral=True)
+
+
+class _BtnLimparFilaStreamer(Button):
+    def __init__(self):
+        super().__init__(label="Limpar Fila", emoji="🗑️", style=discord.ButtonStyle.danger, row=2)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        config["global"]["streamer"]["fila"] = []
+        salvar_config(config)
+        await _atualizar_painel_streamer(config)
+        await interaction.response.send_message("🗑️ Fila do streamer limpa.", ephemeral=True)
+
+
+async def _criar_canal_partida_streamer(guild: discord.Guild, config: dict, streamer_uid, chamados: list, modo: str):
+    """Cria canal de partida do streamer com permissões para o streamer + chamados."""
+    cat_id = config.get("global", {}).get("categoria_id")
+    categoria = guild.get_channel(cat_id) if cat_id else None
+
+    overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False)}
+
+    streamer_member = guild.get_member(int(streamer_uid)) if streamer_uid else None
+    if streamer_member:
+        overwrites[streamer_member] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
+
+    for uid in chamados:
+        m = guild.get_member(int(uid))
+        if m:
+            overwrites[m] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
+
+    nome = f"streamer-{modo}-{gerar_id()[:6]}"
+    try:
+        canal = await guild.create_text_channel(name=nome, category=categoria, overwrites=overwrites, reason="Fila do streamer")
+    except discord.Forbidden:
+        return None
+
+    embed = discord.Embed(
+        title="🎬  Partida do Streamer!",
+        description=(
+            f"**🎥 Streamer:** <@{streamer_uid}>\n"
+            f"**🎮 Modo:** {EMOJI_MODO.get(modo, '🎮')} **{modo}**\n\n"
+            f"**👥 Desafiantes:**\n" + "\n".join(f"• <@{u}>" for u in chamados)
+        ),
+        color=0x9B59B6,
+    )
+    embed.set_footer(text="Boa partida! Quando terminar, use /vencedor para definir o vencedor e fechar o canal.")
+
+    streamer_member_obj = guild.get_member(int(streamer_uid)) if streamer_uid else None
+    if streamer_member_obj and streamer_member_obj.display_avatar:
+        embed.set_thumbnail(url=streamer_member_obj.display_avatar.url)
+
+    mentions = " ".join([f"<@{streamer_uid}>"] + [f"<@{u}>" for u in chamados])
+    await canal.send(content=mentions, embed=embed)
+    return canal
+
+
+# ──────────────────────────────────────────────
 # Aparência (por servidor)
 # ──────────────────────────────────────────────
 
@@ -1702,6 +1982,8 @@ class MyBot(discord.Client):
                 self.add_view(FilaView(ch, preco["id"], b1, b2))
         # Painel mediador persistente
         self.add_view(PainelMediadorView())
+        # Painel streamer persistente
+        self.add_view(PainelStreamerView())
         # Sync global (pode demorar até 1h pra propagar)
         await self.tree.sync()
         print("✅ Slash commands globais sincronizados.")
@@ -1802,6 +2084,33 @@ async def filas_on(interaction: discord.Interaction):
     salvar_config(config)
     await _atualizar_status_filas(interaction.guild, config)
     await interaction.response.send_message("🟢 **Filas ATIVADAS** — os jogadores já podem entrar.", ephemeral=True)
+
+
+@bot.tree.command(name="painel_streamer", description="Publica o painel da fila do streamer no canal atual")
+async def painel_streamer(interaction: discord.Interaction):
+    if not await _check_pode_admin(interaction):
+        return
+    config = carregar_config()
+    embed  = build_embed_painel_streamer(config)
+    view   = PainelStreamerView()
+    msg    = await interaction.channel.send(embed=embed, view=view)
+    _painel_streamer_msgs[interaction.channel.id] = msg.id
+    await interaction.response.send_message("✅ Painel da fila do streamer publicado!", ephemeral=True)
+
+
+@bot.tree.command(name="streamer", description="Define quem é o streamer da fila")
+@app_commands.describe(streamer="Usuário que será o streamer (deixe vazio para limpar)")
+async def streamer_cmd(interaction: discord.Interaction, streamer: discord.Member = None):
+    if not await _check_pode_admin(interaction):
+        return
+    config = carregar_config()
+    config["global"]["streamer"]["user_id"] = streamer.id if streamer else None
+    salvar_config(config)
+    await _atualizar_painel_streamer(config)
+    if streamer:
+        await interaction.response.send_message(f"✅ Streamer definido: {streamer.mention}", ephemeral=True)
+    else:
+        await interaction.response.send_message("✅ Streamer removido.", ephemeral=True)
 
 
 @bot.tree.command(name="vencedor", description="Define o vencedor da partida e fecha o canal em 10 segundos")
