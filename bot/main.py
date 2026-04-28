@@ -660,23 +660,23 @@ class EditarLayoutModal(Modal):
             placeholder="Fila {modo} • {valor}",
         )
         self.descricao = TextInput(
-            label="Descrição/Layout (deixa vazio = padrão)",
+            label="Descrição/Layout (vazio = padrão)",
             default=cfg.get("descricao_template", ""),
             required=False, max_length=2000,
             style=discord.TextStyle.paragraph,
-            placeholder="🎮 **Modo:** {modo_emoji} {modo}\n💰 **Valor:** {valor}\n\n👥 **Jogadores ({jogadores_count}/{jogadores_total})**\n{jogadores}",
+            placeholder="Ex: 💰 {valor} • 👥 {jogadores_count}/{jogadores_total}\n{jogadores}",
         )
         self.txt_vazio = TextInput(
             label="Texto quando NÃO tem jogadores",
             default=cfg.get("texto_jogadores_vazio", ""),
             required=False, max_length=300,
-            placeholder="Nenhum jogador na fila. Faltam {jogadores_total} pessoas.",
+            placeholder="Ex: Fila vazia. Faltam {vagas} jogadores.",
         )
         self.txt_cheio = TextInput(
             label="Texto quando fila ENCHE",
             default=cfg.get("texto_fila_completa", ""),
             required=False, max_length=300,
-            placeholder="🔥 Fila {modo} cheia! Iniciando partida de {valor}…",
+            placeholder="Ex: 🔥 Fila {modo} cheia! Valor: {valor}",
         )
         self.rodape = TextInput(
             label="Rodapé (footer)",
