@@ -915,6 +915,7 @@ class ModoConfigView(View):
         self.add_item(_BtnEditarEmbed(ch, painel_msg))
         self.add_item(_BtnEditarBotoes(ch, painel_msg))
         self.add_item(_BtnEditarLayout(ch, painel_msg))
+        self.add_item(_BtnVerPlaceholders(ch))
         self.add_item(_BtnGerenciarPrecos(ch, painel_msg))
         self.add_item(_BtnVoltarCategoria(cat, painel_msg))
 
@@ -963,6 +964,60 @@ class _BtnEditarLayout(Button):
     async def callback(self, interaction: discord.Interaction):
         config = carregar_config()
         await interaction.response.send_modal(EditarLayoutModal(self.ch, config, self.painel_msg))
+
+
+class _BtnVerPlaceholders(Button):
+    def __init__(self, ch):
+        super().__init__(label="❓  Placeholders", style=discord.ButtonStyle.secondary, row=1)
+        self.ch = ch
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        cat, m = split_chave(self.ch)
+        cfg = config[self.ch]
+        # Pega o primeiro preço pra mostrar exemplo real
+        preco_exemplo = cfg["precos"][0] if cfg.get("precos") else {"valor": "R$ 1,00", "jogadores": []}
+        ctx = _ctx_fila(self.ch, preco_exemplo, config)
+
+        embed = discord.Embed(
+            title="❓ Placeholders disponíveis",
+            description=(
+                "Use estes códigos dentro dos campos do **📝 Texto/Layout**. "
+                "Eles são substituídos automaticamente quando o embed da fila é mostrado."
+            ),
+            color=cor_global(config),
+        )
+
+        explicacoes = [
+            ("`{titulo}`",            "Título configurado da fila",                  ctx["titulo"]),
+            ("`{categoria}`",         "Categoria do modo (ex: Free Fire)",            ctx["categoria"]),
+            ("`{categoria_emoji}`",   "Emoji da categoria",                           ctx["categoria_emoji"] or "—"),
+            ("`{modo}`",              "Modo de jogo (ex: 1x1, 2x2…)",                ctx["modo"]),
+            ("`{modo_emoji}`",        "Emoji do modo",                                ctx["modo_emoji"] or "—"),
+            ("`{valor}`",             "Valor da aposta",                              ctx["valor"]),
+            ("`{jogadores}`",         "Lista numerada com mentions dos jogadores",    "1. @Fulano\n2. @Beltrano"),
+            ("`{jogadores_count}`",   "Quantos jogadores entraram na fila",           str(ctx["jogadores_count"])),
+            ("`{jogadores_total}`",   "Total de vagas necessárias",                   str(ctx["jogadores_total"])),
+            ("`{vagas}`",             "Quantas vagas ainda faltam",                   str(ctx["vagas"])),
+        ]
+
+        bloco = "\n".join(f"{cod} — {desc}\n  ↳ valor atual: `{val}`" for cod, desc, val in explicacoes)
+        embed.add_field(name="Lista completa", value=bloco, inline=False)
+
+        embed.add_field(
+            name="💡 Exemplo de Descrição/Layout",
+            value=(
+                "```\n"
+                "🎮 Modo: {modo_emoji} {modo}\n"
+                "💰 Valor: {valor}\n"
+                "👥 Jogadores ({jogadores_count}/{jogadores_total}):\n"
+                "{jogadores}\n"
+                "```"
+            ),
+            inline=False,
+        )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 class _BtnGerenciarPrecos(Button):
