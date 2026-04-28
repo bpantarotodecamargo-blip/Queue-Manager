@@ -161,6 +161,18 @@ def carregar_config() -> dict:
         "aberta":  False,   # se está aceitando entradas
     })
 
+    # Embeds personalizáveis dos painéis
+    g.setdefault("painel_streamer_embed", {
+        "titulo":    "🎬  Fila do Streamer",
+        "banner":    "",
+        "thumbnail": "",
+    })
+    g.setdefault("painel_mediador_embed", {
+        "titulo":    "🤝  Painel de Mediadores",
+        "banner":    "",
+        "thumbnail": "",
+    })
+
     # Aparência por servidor: {guild_id_str: {"bio": "..."}}
     data.setdefault("aparencias", {})
 
@@ -419,9 +431,11 @@ def build_embed_painel_mediador(config: dict) -> discord.Embed:
     g          = config.get("global", {})
     fila       = g.get("fila_mediador", [])
     mediadores = g.get("mediadores", {})
+    custom     = g.get("painel_mediador_embed", {})
+    titulo     = custom.get("titulo") or "🤝  Painel de Mediadores"
 
     embed = discord.Embed(
-        title="🤝  Painel de Mediadores",
+        title=titulo,
         description=(
             "Mediadores cadastram seu **PIX** e entram na fila.\n"
             "Quando uma partida for confirmada, o **próximo mediador da fila** é puxado e seu PIX é exibido aos jogadores."
@@ -449,6 +463,13 @@ def build_embed_painel_mediador(config: dict) -> discord.Embed:
         embed.add_field(name="💳 Mediadores cadastrados", value="*Nenhum mediador cadastrou PIX ainda.*", inline=False)
 
     embed.set_footer(text="Use os botões abaixo para cadastrar PIX, entrar ou sair da fila de mediadores.")
+
+    thumb  = custom.get("thumbnail") or g.get("embed_global", {}).get("thumbnail", "")
+    banner = custom.get("banner")    or g.get("embed_global", {}).get("banner", "")
+    if thumb:
+        embed.set_thumbnail(url=thumb)
+    if banner:
+        embed.set_image(url=banner)
     return embed
 
 
@@ -1136,6 +1157,58 @@ async def _atualizar_painel_mediador(painel_med_msg, config):
             pass
 
 
+class EditarPainelEmbedModal(Modal):
+    """Modal compartilhado para editar título/banner/thumbnail dos painéis (streamer e mediador)."""
+    def __init__(self, key: str, default_titulo: str, alvo: str):
+        super().__init__(title=f"Editar Embed — {alvo.title()}")
+        self.key  = key   # "painel_streamer_embed" ou "painel_mediador_embed"
+        self.alvo = alvo  # "streamer" ou "mediador"
+
+        config = carregar_config()
+        cur = config.get("global", {}).get(key, {})
+
+        self.titulo = TextInput(
+            label="Título",
+            default=cur.get("titulo") or default_titulo,
+            max_length=100,
+            required=True,
+        )
+        self.banner = TextInput(
+            label="Banner (URL — vazio = usar global)",
+            default=cur.get("banner", ""),
+            required=False,
+            max_length=300,
+        )
+        self.thumbnail = TextInput(
+            label="Thumbnail (URL — vazio = usar global)",
+            default=cur.get("thumbnail", ""),
+            required=False,
+            max_length=300,
+        )
+        self.add_item(self.titulo)
+        self.add_item(self.banner)
+        self.add_item(self.thumbnail)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        cur = config["global"].setdefault(self.key, {})
+        cur["titulo"]    = self.titulo.value.strip()
+        cur["banner"]    = self.banner.value.strip()
+        cur["thumbnail"] = self.thumbnail.value.strip()
+        salvar_config(config)
+
+        # Atualiza o painel correspondente
+        if self.alvo == "streamer":
+            await _atualizar_painel_streamer(config)
+        else:
+            await _atualizar_painel_mediador(None, config)
+
+        await interaction.response.send_message(
+            f"✅ Embed do painel **{self.alvo}** atualizado!",
+            ephemeral=True,
+        )
+
+
 class PainelMediadorView(View):
     def __init__(self, painel_med_msg=None):
         super().__init__(timeout=None)
@@ -1143,6 +1216,21 @@ class PainelMediadorView(View):
         self.add_item(_BtnEntrarFilaMediador(painel_med_msg))
         self.add_item(_BtnSairFilaMediador(painel_med_msg))
         self.add_item(_BtnLimparFilaMediador(painel_med_msg))
+        self.add_item(_BtnEditarEmbedMediador(painel_med_msg))
+
+
+class _BtnEditarEmbedMediador(Button):
+    def __init__(self, painel_med_msg=None):
+        super().__init__(label="Editar Embed", emoji="✏️", style=discord.ButtonStyle.secondary, custom_id="med_editar_embed")
+        self.painel_med_msg = painel_med_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Apenas administradores podem editar o embed.", ephemeral=True); return
+        await interaction.response.send_modal(
+            EditarPainelEmbedModal("painel_mediador_embed", "🤝  Painel de Mediadores", alvo="mediador")
+        )
 
 
 class _BtnCadastrarPix(Button):
@@ -1488,17 +1576,21 @@ def _streamer_pode_controlar(member: discord.Member, config: dict) -> bool:
 
 
 def build_embed_painel_streamer(config: dict) -> discord.Embed:
-    s = config.get("global", {}).get("streamer", {})
+    g = config.get("global", {})
+    s = g.get("streamer", {})
     streamer_uid = s.get("user_id")
     modo         = s.get("modo", "1v1")
     fila         = s.get("fila", [])
     aberta       = s.get("aberta", False)
 
+    custom = g.get("painel_streamer_embed", {})
+    titulo = custom.get("titulo") or "🎬  Fila do Streamer"
+
     status_txt = "🟢 **ABERTA**" if aberta else "🛑 **FECHADA**"
     streamer_txt = f"<@{streamer_uid}>" if streamer_uid else "*— não definido —*"
 
     embed = discord.Embed(
-        title="🎬  Fila do Streamer",
+        title=titulo,
         description=(
             f"Entre na fila para **enfrentar o streamer**!\n\n"
             f"**🎥 Streamer:** {streamer_txt}\n"
@@ -1526,6 +1618,13 @@ def build_embed_painel_streamer(config: dict) -> discord.Embed:
         embed.add_field(name="📋 Fila", value="*— vazia —*", inline=False)
 
     embed.set_footer(text="Use os botões abaixo para entrar/sair. Streamer e admins controlam o painel.")
+
+    thumb  = custom.get("thumbnail") or g.get("embed_global", {}).get("thumbnail", "")
+    banner = custom.get("banner")    or g.get("embed_global", {}).get("banner", "")
+    if thumb:
+        embed.set_thumbnail(url=thumb)
+    if banner:
+        embed.set_image(url=banner)
     return embed
 
 
@@ -1550,6 +1649,20 @@ class PainelStreamerView(View):
         self.add_item(_BtnStreamerProximo())
         self.add_item(_BtnStreamerAbrirFechar())
         self.add_item(_BtnStreamerConfig())
+        self.add_item(_BtnEditarEmbedStreamer())
+
+
+class _BtnEditarEmbedStreamer(Button):
+    def __init__(self):
+        super().__init__(label="Editar Embed", emoji="✏️", style=discord.ButtonStyle.secondary, custom_id="streamer_editar_embed", row=2)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Apenas administradores podem editar o embed.", ephemeral=True); return
+        await interaction.response.send_modal(
+            EditarPainelEmbedModal("painel_streamer_embed", "🎬  Fila do Streamer", alvo="streamer")
+        )
 
 
 class _BtnStreamerEntrar(Button):

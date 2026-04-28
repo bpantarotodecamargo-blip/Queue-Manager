@@ -114,7 +114,13 @@
         "chave": "111111111"
       }
     },
-    "fila_mediador": []
+    "fila_mediador": [],
+    "streamer": {
+      "user_id": 1479876596235239426,
+      "modo": "1v1",
+      "fila": [],
+      "aberta": true
+    }
   },
   "Mobile_1v1": {
     "titulo": "Mobile 1v1",

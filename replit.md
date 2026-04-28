@@ -38,7 +38,8 @@ Located in `bot/` (Python 3.11, discord.py 2.7+). Runs via the `Discord Queue Bo
 
 Painel persistente onde jogadores entram para enfrentar o streamer:
 - **Modos:** 1v1, 2v2, 3v3, 4v4 — define quantas pessoas são chamadas por vez (modo/2).
-- **Botões:** Entrar, Sair, Chamar Próximo (streamer/admin), Abrir/Fechar (streamer/admin), Configurar (admin).
+- **Botões:** Entrar, Sair, Chamar Próximo (streamer/admin), Abrir/Fechar (streamer/admin), Configurar (admin), **Editar Embed (admin)**.
+- **Editar Embed:** título, banner e thumbnail próprios do painel (mesmo sistema disponível também no painel de mediadores). Vazio = usa o embed global como fallback.
 - Quando o streamer chama o próximo, é criado um canal `streamer-<modo>-<id>` com permissões só para o streamer + os chamados, com mention de todos.
 - Use `/vencedor` no canal da partida para fechar.
 
