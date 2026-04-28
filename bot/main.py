@@ -2367,12 +2367,20 @@ class MyBot(discord.Client):
         self.add_view(PainelMediadorView())
         # Painel streamer persistente
         self.add_view(PainelStreamerView())
-        # Sync global (pode demorar até 1h pra propagar)
-        await self.tree.sync()
-        print("✅ Slash commands globais sincronizados.")
+        # IMPORTANTE: não sincronizar globalmente para evitar comandos duplicados
+        # (a sincronização será feita por servidor em on_ready / on_guild_join)
 
     async def on_ready(self):
         print(f"🤖 Bot conectado como {self.user} (ID: {self.user.id})")
+        # Apaga comandos globais registrados na Discord (sem mexer na árvore local)
+        # — isto remove duplicatas que apareciam por terem sido registradas como
+        # global E por servidor em versões anteriores do bot.
+        try:
+            await self.http.bulk_upsert_global_commands(self.application_id, [])
+            print("🧹 Comandos globais antigos removidos (anti-duplicação).")
+        except Exception as e:
+            print(f"⚠️ Falha ao limpar comandos globais: {e}")
+
         # Sync por guild — comandos aparecem imediatamente em cada servidor
         for guild in self.guilds:
             try:
