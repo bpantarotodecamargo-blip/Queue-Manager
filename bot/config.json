@@ -1,0 +1,427 @@
+{
+  "1v1": {
+    "titulo": "Fila 1v1",
+    "preco": "R$ 1,00, R$5,00",
+    "banner": "https://cdn.discordapp.com/attachments/1495091143250022440/1495761710416527360/ChatGPT_Image_19_de_abr._de_2026_18_50_42.png?ex=69e76c25&is=69e61aa5&hm=703836b72b6943b79e38b56c7c32a700313a2b18d03a4bd261ea424c8f43a1d1&",
+    "thumbnail": "https://cdn.discordapp.com/attachments/1495091143250022440/1495761843874955264/ChatGPT_Image_19_de_abr._de_2026_15_32_48.png?ex=69e76c45&is=69e61ac5&hm=a293e1ccf1b955ee98bcd5efe82081b6d3d743298589f9224ab7d762df7de652&",
+    "jogadores": [],
+    "canal_id": 1495091027130843326,
+    "botao1": {
+      "emoji": "<:geloff:1495770249235140743>",
+      "label": "Gelo Infinito"
+    },
+    "botao2": {
+      "emoji": "<:geloff:1495770249235140743>",
+      "label": "Gelo Normal"
+    },
+    "precos": [
+      {
+        "id": "6aaee9a996",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "1509c99011",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "2v2": {
+    "titulo": "Fila 2v2",
+    "preco": "R$ 1,00",
+    "banner": "",
+    "thumbnail": "",
+    "jogadores": [],
+    "canal_id": 1495091003768574073,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Jogar normal"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Full Ump XM8"
+    },
+    "precos": [
+      {
+        "id": "54344f2763",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "3v3": {
+    "titulo": "Fila 3v3",
+    "preco": "R$ 1,00",
+    "banner": "",
+    "thumbnail": "",
+    "jogadores": [],
+    "canal_id": 1495091001314771025,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Jogar normal"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Full Ump XM8"
+    },
+    "precos": [
+      {
+        "id": "d55654510c",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "4v4 Mobile": {
+    "titulo": "Fila 4v4 Mobile",
+    "preco": "R$ 0,50",
+    "banner": "",
+    "thumbnail": "",
+    "jogadores": [],
+    "canal_id": 1495091008478777364,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Jogar normal"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Full Ump XM8"
+    },
+    "precos": [
+      {
+        "id": "7c19ed3367",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "global": {
+    "cargo_adm_id": 1495090824579514540,
+    "categoria_id": 1495090910130606250
+  },
+  "Mobile_1v1": {
+    "titulo": "Mobile 1v1",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091006889267341,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "df46e77f3b",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "33401fe4b5",
+        "valor": "R$ 0,25",
+        "jogadores": []
+      }
+    ]
+  },
+  "Mobile_2v2": {
+    "titulo": "Mobile 2v2",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091001314771025,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "5c3124ab78",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "Mobile_3v3": {
+    "titulo": "Mobile 3v3",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091010030801086,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "18fe767c51",
+        "valor": "R$ 1,00",
+        "jogadores": [
+          "1479876596235239426"
+        ]
+      }
+    ]
+  },
+  "Mobile_4v4": {
+    "titulo": "Mobile 4v4",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091020793381006,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "16e621bbd8",
+        "valor": "R$ 1,00",
+        "jogadores": [
+          "1479876596235239426"
+        ]
+      }
+    ]
+  },
+  "Emulador_1v1": {
+    "titulo": "Emulador 1v1",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091000031445315,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "b2045302d4",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "Emulador_2v2": {
+    "titulo": "Emulador 2v2",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091000031445315,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "879e3cfb48",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "Emulador_3v3": {
+    "titulo": "Emulador 3v3",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091000031445315,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "f836e7f975",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "Emulador_4v4": {
+    "titulo": "Emulador 4v4",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091000031445315,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "41b988e567",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "Misto_2v2": {
+    "titulo": "Misto 2v2",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091000031445315,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "5ec0f7caec",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "Misto_3v3": {
+    "titulo": "Misto 3v3",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091000031445315,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "7911db6323",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "Misto_4v4": {
+    "titulo": "Misto 4v4",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091000031445315,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "e9b96eecc9",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "Tático_1v1": {
+    "titulo": "Tático 1v1",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091000031445315,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "efe2d86ebf",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "Tático_2v2": {
+    "titulo": "Tático 2v2",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091000031445315,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "c4292c31e9",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "Tático_3v3": {
+    "titulo": "Tático 3v3",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091000031445315,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "4ddb104a5b",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  },
+  "Tático_4v4": {
+    "titulo": "Tático 4v4",
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1495091000031445315,
+    "botao1": {
+      "emoji": "🎮",
+      "label": "Opção 1"
+    },
+    "botao2": {
+      "emoji": "🔫",
+      "label": "Opção 2"
+    },
+    "precos": [
+      {
+        "id": "abe425dd36",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      }
+    ]
+  }
+}
