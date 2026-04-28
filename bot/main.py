@@ -37,7 +37,7 @@ EMOJI_MODO = {"1v1": "⚔️", "2v2": "👥", "3v3": "🛡️", "4v4": "🎮"}
 
 JOGADORES_MODO = {"1v1": 2, "2v2": 4, "3v3": 6, "4v4": 8}
 
-COR_EMBED = 0x2ECC71
+COR_PADRAO = 0x2ECC71
 
 # Lista plana de todas as chaves de modo
 ALL_MODOS: list[str] = [
@@ -98,12 +98,23 @@ def gerar_id() -> str:
     return str(uuid.uuid4()).replace("-", "")[:10]
 
 
+def parse_cor(valor: str) -> int:
+    """Aceita '#2ecc71', '2ecc71', '0x2ecc71' ou número."""
+    if not valor:
+        return COR_PADRAO
+    s = str(valor).strip().lstrip("#").lstrip("0x").lstrip("0X")
+    try:
+        return int(s, 16)
+    except Exception:
+        try:
+            return int(valor)
+        except Exception:
+            return COR_PADRAO
+
+
 # ──────────────────────────────────────────────
 # Config
 # ──────────────────────────────────────────────
-
-_BOTAO_PADRAO = {"emoji": "🎮", "label": "Entrar"}
-
 
 def _modo_padrao(ch: str) -> dict:
     _, m = split_chave(ch)
@@ -127,8 +138,19 @@ def carregar_config() -> dict:
 
     # Global config
     data.setdefault("global", {})
-    data["global"].setdefault("cargo_adm_id", None)
-    data["global"].setdefault("categoria_id", None)
+    g = data["global"]
+    g.setdefault("cargo_adm_id",       None)   # cargo notificado nas partidas
+    g.setdefault("cargo_max_id",       None)   # permissão máxima (usar painel)
+    g.setdefault("cargo_mediador_id",  None)   # cargo dos mediadores
+    g.setdefault("categoria_id",       None)
+    g.setdefault("filas_ativas",       True)
+    g.setdefault("embed_global", {
+        "banner":    "",
+        "thumbnail": "",
+        "cor":       f"#{COR_PADRAO:06X}",
+    })
+    g.setdefault("mediadores",     {})   # {user_id_str: {"tipo": "...", "chave": "...", "nome": "..."}}
+    g.setdefault("fila_mediador",  [])   # [user_id_str, ...]
 
     # Garantir todas as chaves de modo
     for ch in ALL_MODOS:
@@ -178,6 +200,37 @@ def encontrar_preco(config: dict, preco_id: str):
     return None, None
 
 
+def cor_global(config: dict) -> int:
+    return parse_cor(config.get("global", {}).get("embed_global", {}).get("cor", ""))
+
+
+def banner_efetivo(config: dict, ch: str) -> str:
+    cfg = config[ch]
+    return cfg.get("banner") or config.get("global", {}).get("embed_global", {}).get("banner", "")
+
+
+def thumb_efetiva(config: dict, ch: str) -> str:
+    cfg = config[ch]
+    return cfg.get("thumbnail") or config.get("global", {}).get("embed_global", {}).get("thumbnail", "")
+
+
+def usuario_pode_admin(member: discord.Member, config: dict) -> bool:
+    """True se for admin do servidor OU tem cargo_max."""
+    if member.guild_permissions.administrator or member.guild_permissions.manage_channels:
+        return True
+    cargo_max = config.get("global", {}).get("cargo_max_id")
+    if cargo_max and any(r.id == cargo_max for r in member.roles):
+        return True
+    return False
+
+
+def usuario_e_mediador(member: discord.Member, config: dict) -> bool:
+    cargo_med = config.get("global", {}).get("cargo_mediador_id")
+    if cargo_med and any(r.id == cargo_med for r in member.roles):
+        return True
+    return usuario_pode_admin(member, config)
+
+
 # ──────────────────────────────────────────────
 # Embeds
 # ──────────────────────────────────────────────
@@ -187,25 +240,30 @@ def build_embed_fila(ch: str, preco: dict, config: dict) -> discord.Embed:
     cat, m    = split_chave(ch)
     jogadores = preco.get("jogadores", [])
     total     = jogadores_da_chave(ch)
+    g         = config.get("global", {})
 
-    embed = discord.Embed(title=cfg["titulo"], color=COR_EMBED)
+    embed = discord.Embed(title=cfg["titulo"], color=cor_global(config))
     embed.add_field(name="Categoria", value=f"{EMOJI_CATEGORIA[cat]} {cat}", inline=True)
     embed.add_field(name="Modo",      value=f"{EMOJI_MODO[m]} {m}",          inline=True)
     embed.add_field(name="Valor",     value=f"**{preco['valor']}**",          inline=True)
 
-    if jogadores:
+    if not g.get("filas_ativas", True):
+        embed.add_field(name="\u200b", value="🛑 **FILAS DESATIVADAS**", inline=False)
+    elif jogadores:
         lista = "\n".join(f"{i+1}. <@{uid}>" for i, uid in enumerate(jogadores))
         embed.add_field(name=f"Jogadores ({len(jogadores)}/{total})", value=lista, inline=False)
     else:
         embed.add_field(name="Jogadores", value="Nenhum jogador na fila.", inline=False)
 
-    if len(jogadores) >= total:
+    if g.get("filas_ativas", True) and len(jogadores) >= total:
         embed.add_field(name="\u200b", value="🔥 **Fila completa! Partida iniciando...**", inline=False)
 
-    if cfg.get("thumbnail"):
-        embed.set_thumbnail(url=cfg["thumbnail"])
-    if cfg.get("banner"):
-        embed.set_image(url=cfg["banner"])
+    thumb = thumb_efetiva(config, ch)
+    banner = banner_efetivo(config, ch)
+    if thumb:
+        embed.set_thumbnail(url=thumb)
+    if banner:
+        embed.set_image(url=banner)
     return embed
 
 
@@ -217,7 +275,7 @@ def build_embed_config_modo(ch: str, config: dict) -> discord.Embed:
     b1, b2 = cfg["botao1"], cfg["botao2"]
     precos = cfg.get("precos", [])
 
-    embed = discord.Embed(title=f"{EMOJI_CATEGORIA[cat]}  Configuração — {display(ch)}", color=COR_EMBED)
+    embed = discord.Embed(title=f"{EMOJI_CATEGORIA[cat]}  Configuração — {display(ch)}", color=cor_global(config))
     embed.add_field(name="📌 Título",    value=f"`{cfg['titulo']}`",                          inline=True)
     embed.add_field(name="📢 Canal",     value=canal,                                          inline=True)
     embed.add_field(name="\u200b",       value="\u200b",                                       inline=True)
@@ -227,17 +285,18 @@ def build_embed_config_modo(ch: str, config: dict) -> discord.Embed:
 
     txt = "\n".join(f"• `{p['valor']}` — {len(p.get('jogadores',[]))} jogadores" for p in precos) or "*sem preços*"
     embed.add_field(name=f"💰 Preços ({len(precos)} embed{'s' if len(precos)!=1 else ''})", value=txt, inline=False)
-    embed.add_field(name="🖼️ Banner",   value=f"`{'✅' if cfg.get('banner') else '❌'}`",    inline=True)
-    embed.add_field(name="🔷 Thumbnail", value=f"`{'✅' if cfg.get('thumbnail') else '❌'}`", inline=True)
-    embed.set_footer(text="Cada preço gera um embed separado com os mesmos botões.")
-    if cfg.get("thumbnail"):
-        embed.set_thumbnail(url=cfg["thumbnail"])
+    embed.add_field(name="🖼️ Banner",   value=f"`{'✅' if cfg.get('banner') else '⬜ usa global'}`",    inline=True)
+    embed.add_field(name="🔷 Thumbnail", value=f"`{'✅' if cfg.get('thumbnail') else '⬜ usa global'}`", inline=True)
+    embed.set_footer(text="Cada preço gera um embed separado. Banner/thumb vazios usam o embed global.")
+    th = thumb_efetiva(config, ch)
+    if th:
+        embed.set_thumbnail(url=th)
     return embed
 
 
 def build_embed_categoria(cat: str, config: dict) -> discord.Embed:
     modos  = MODOS_POR_CATEGORIA[cat]
-    embed  = discord.Embed(title=f"{EMOJI_CATEGORIA[cat]}  {cat} — Selecione o Modo", color=COR_EMBED)
+    embed  = discord.Embed(title=f"{EMOJI_CATEGORIA[cat]}  {cat} — Selecione o Modo", color=cor_global(config))
     for m in modos:
         ch     = chave(cat, m)
         cfg    = config[ch]
@@ -255,7 +314,7 @@ def build_embed_gerenciar_precos(ch: str, config: dict, selected_id: str = None)
     embed  = discord.Embed(
         title=f"💰  Preços — {display(ch)}",
         description=f"**{len(precos)}** preço(s). Cada preço cria um embed separado com os mesmos botões.",
-        color=COR_EMBED,
+        color=cor_global(config),
     )
     for i, p in enumerate(precos):
         sel = "  ◀ selecionado" if p["id"] == selected_id else ""
@@ -267,11 +326,15 @@ def build_embed_gerenciar_precos(ch: str, config: dict, selected_id: str = None)
 
 def build_embed_config_geral(config: dict) -> discord.Embed:
     g     = config.get("global", {})
-    cargo = f"<@&{g['cargo_adm_id']}>" if g.get("cargo_adm_id") else "`Não definido`"
+    cargo_adm = f"<@&{g['cargo_adm_id']}>" if g.get("cargo_adm_id") else "`Não definido`"
+    cargo_max = f"<@&{g['cargo_max_id']}>" if g.get("cargo_max_id") else "`Não definido`"
+    cargo_med = f"<@&{g['cargo_mediador_id']}>" if g.get("cargo_mediador_id") else "`Não definido`"
     cat   = f"<#{g['categoria_id']}>"   if g.get("categoria_id") else "`Não definida`"
-    embed = discord.Embed(title="⚙️  Configuração Global", color=COR_EMBED)
-    embed.add_field(name="🛡️ Cargo ADM",         value=cargo, inline=False)
-    embed.add_field(name="📁 Categoria de canais", value=cat,   inline=False)
+    embed = discord.Embed(title="⚙️  Configuração Global", color=cor_global(config))
+    embed.add_field(name="👑 Cargo Permissão Máxima", value=cargo_max, inline=False)
+    embed.add_field(name="🛡️ Cargo ADM (notificado nas partidas)", value=cargo_adm, inline=False)
+    embed.add_field(name="🤝 Cargo Mediador",         value=cargo_med, inline=False)
+    embed.add_field(name="📁 Categoria de canais",    value=cat,       inline=False)
     embed.add_field(
         name="ℹ️ Como funciona",
         value=(
@@ -279,20 +342,47 @@ def build_embed_config_geral(config: dict) -> discord.Embed:
             "• Canal privado criado para os jogadores\n"
             "• Embed de confirmação enviado\n"
             "• **Cargo ADM** é notificado\n"
-            "• Quando todos confirmarem, o cargo é adicionado ao canal"
+            "• Mediador da fila (ou cargo Mediador) é puxado\n"
+            "• Quando todos confirmarem, o ADM é adicionado ao canal"
         ),
         inline=False,
     )
     return embed
 
 
+def build_embed_config_embed_global(config: dict) -> discord.Embed:
+    g  = config.get("global", {}).get("embed_global", {})
+    embed = discord.Embed(
+        title="🎨  Embed Global",
+        description="Estes valores são aplicados em **todas as filas** que não tenham banner/thumbnail próprios. A **cor** é usada em todos os embeds do bot.",
+        color=cor_global(config),
+    )
+    embed.add_field(name="🖼️ Banner padrão",    value=f"`{g.get('banner','') or '— vazio —'}`", inline=False)
+    embed.add_field(name="🔷 Thumbnail padrão", value=f"`{g.get('thumbnail','') or '— vazio —'}`", inline=False)
+    embed.add_field(name="🎨 Cor",              value=f"`{g.get('cor','') or '#2ECC71'}`",       inline=False)
+    if g.get("thumbnail"):
+        embed.set_thumbnail(url=g["thumbnail"])
+    if g.get("banner"):
+        embed.set_image(url=g["banner"])
+    return embed
+
+
 def build_embed_painel_geral(config: dict) -> discord.Embed:
     g     = config.get("global", {})
-    cargo = f"<@&{g['cargo_adm_id']}>" if g.get("cargo_adm_id") else "`Não definido`"
+    cargo_max = f"<@&{g['cargo_max_id']}>" if g.get("cargo_max_id") else "`—`"
+    cargo_adm = f"<@&{g['cargo_adm_id']}>" if g.get("cargo_adm_id") else "`—`"
+    cargo_med = f"<@&{g['cargo_mediador_id']}>" if g.get("cargo_mediador_id") else "`—`"
+    status_filas = "🟢 **ATIVAS**" if g.get("filas_ativas", True) else "🛑 **DESATIVADAS**"
     embed = discord.Embed(
         title="⚙️  Painel — Bot de Filas",
-        description=f"Selecione uma categoria para configurar os modos.\n**🛡️ Cargo ADM:** {cargo}",
-        color=COR_EMBED,
+        description=(
+            f"Selecione uma categoria para configurar os modos.\n\n"
+            f"**👑 Permissão máxima:** {cargo_max}\n"
+            f"**🛡️ Cargo ADM:** {cargo_adm}\n"
+            f"**🤝 Cargo Mediador:** {cargo_med}\n"
+            f"**Status:** {status_filas}"
+        ),
+        color=cor_global(config),
     )
     for cat in CATEGORIAS:
         modos  = MODOS_POR_CATEGORIA[cat]
@@ -305,7 +395,63 @@ def build_embed_painel_geral(config: dict) -> discord.Embed:
             n_precos = len(cfg.get("precos", []))
             linhas.append(f"{EMOJI_MODO[m]} **{m}** — {canal} — {n_precos} preço(s)")
         embed.add_field(name=f"{EMOJI_CATEGORIA[cat]} {cat}", value="\n".join(linhas), inline=False)
-    embed.set_footer(text="Apenas administradores podem usar este painel.")
+    embed.set_footer(text="Apenas administradores e cargo de permissão máxima podem usar este painel.")
+    return embed
+
+
+# ──────────────────────────────────────────────
+# Embeds — Mediador
+# ──────────────────────────────────────────────
+
+def build_embed_painel_mediador(config: dict) -> discord.Embed:
+    g          = config.get("global", {})
+    fila       = g.get("fila_mediador", [])
+    mediadores = g.get("mediadores", {})
+
+    embed = discord.Embed(
+        title="🤝  Painel de Mediadores",
+        description=(
+            "Mediadores cadastram seu **PIX** e entram na fila.\n"
+            "Quando uma partida for confirmada, o **próximo mediador da fila** é puxado e seu PIX é exibido aos jogadores."
+        ),
+        color=cor_global(config),
+    )
+
+    if fila:
+        linhas = []
+        for i, uid in enumerate(fila):
+            med = mediadores.get(str(uid), {})
+            nome = med.get("nome") or "?"
+            linhas.append(f"`{i+1}.` <@{uid}> — {nome}")
+        embed.add_field(name=f"📋 Fila de mediadores ({len(fila)})", value="\n".join(linhas), inline=False)
+    else:
+        embed.add_field(name="📋 Fila de mediadores", value="*Vazia — nenhum mediador disponível.*", inline=False)
+
+    if mediadores:
+        embed.add_field(
+            name=f"💳 Mediadores cadastrados ({len(mediadores)})",
+            value="\n".join(f"• <@{uid}> — `{m.get('tipo','?')}` `{m.get('chave','?')}`" for uid, m in list(mediadores.items())[:15]) or "—",
+            inline=False,
+        )
+    else:
+        embed.add_field(name="💳 Mediadores cadastrados", value="*Nenhum mediador cadastrou PIX ainda.*", inline=False)
+
+    embed.set_footer(text="Use os botões abaixo para cadastrar PIX, entrar ou sair da fila de mediadores.")
+    return embed
+
+
+def build_embed_pix_mediador(mediador_uid: str, mediador_data: dict, ch: str, preco: dict) -> discord.Embed:
+    embed = discord.Embed(
+        title="💳  Mediador da Partida",
+        description=f"Por favor, façam o pagamento ao mediador abaixo:",
+        color=0xF1C40F,
+    )
+    embed.add_field(name="🤝 Mediador",     value=f"<@{mediador_uid}>",                inline=False)
+    embed.add_field(name="👤 Nome",         value=f"`{mediador_data.get('nome','—')}`", inline=True)
+    embed.add_field(name="🏦 Tipo de PIX",  value=f"`{mediador_data.get('tipo','—')}`", inline=True)
+    embed.add_field(name="🔑 Chave PIX",    value=f"```{mediador_data.get('chave','—')}```", inline=False)
+    embed.add_field(name="💰 Valor",        value=f"**{preco['valor']}** — {display(ch)}", inline=False)
+    embed.set_footer(text="Após o pagamento, o mediador irá liberar a partida.")
     return embed
 
 
@@ -331,8 +477,8 @@ class EditarEmbedModal(Modal):
         self.ch, self.painel_msg = ch, painel_msg
         cfg = config[ch]
         self.titulo    = TextInput(label="Título",              default=cfg.get("titulo",""),    max_length=100, required=True)
-        self.banner    = TextInput(label="URL do Banner",       default=cfg.get("banner",""),    required=False, placeholder="https://...")
-        self.thumbnail = TextInput(label="URL da Thumbnail",    default=cfg.get("thumbnail",""), required=False, placeholder="https://...")
+        self.banner    = TextInput(label="URL do Banner (vazio = global)", default=cfg.get("banner",""),    required=False, placeholder="https://...")
+        self.thumbnail = TextInput(label="URL da Thumbnail (vazio = global)", default=cfg.get("thumbnail",""), required=False, placeholder="https://...")
         self.add_item(self.titulo); self.add_item(self.banner); self.add_item(self.thumbnail)
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -343,6 +489,27 @@ class EditarEmbedModal(Modal):
         salvar_config(config)
         cat, _ = split_chave(self.ch)
         await interaction.response.edit_message(embed=build_embed_config_modo(self.ch, config), view=ModoConfigView(self.ch, cat, self.painel_msg))
+        await _atualizar_painel(self.painel_msg, config)
+
+
+class EditarEmbedGlobalModal(Modal):
+    def __init__(self, config: dict, painel_msg=None):
+        super().__init__(title="Editar Embed Global")
+        self.painel_msg = painel_msg
+        g = config.get("global", {}).get("embed_global", {})
+        self.banner    = TextInput(label="Banner padrão (URL)",    default=g.get("banner",""),    required=False, placeholder="https://...")
+        self.thumbnail = TextInput(label="Thumbnail padrão (URL)", default=g.get("thumbnail",""), required=False, placeholder="https://...")
+        self.cor       = TextInput(label="Cor (hex, ex: #2ecc71)", default=g.get("cor","#2ECC71"), required=False, max_length=10, placeholder="#2ECC71")
+        self.add_item(self.banner); self.add_item(self.thumbnail); self.add_item(self.cor)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        eg = config["global"].setdefault("embed_global", {})
+        eg["banner"]    = self.banner.value.strip()
+        eg["thumbnail"] = self.thumbnail.value.strip()
+        eg["cor"]       = self.cor.value.strip() or "#2ECC71"
+        salvar_config(config)
+        await interaction.response.edit_message(embed=build_embed_config_embed_global(config), view=EmbedGlobalView(self.painel_msg))
         await _atualizar_painel(self.painel_msg, config)
 
 
@@ -406,6 +573,28 @@ class EditarPrecoModal(Modal):
         view.selected_id = self.preco_id
         await interaction.response.edit_message(embed=build_embed_gerenciar_precos(self.ch, config, self.preco_id), view=view)
         await _atualizar_painel(self.gv.painel_msg, config)
+
+
+class CadastrarPixModal(Modal):
+    def __init__(self, painel_med_msg=None):
+        super().__init__(title="Cadastrar PIX — Mediador")
+        self.painel_med_msg = painel_med_msg
+        self.nome  = TextInput(label="Seu nome (titular)",   max_length=80, required=True, placeholder="Nome completo")
+        self.tipo  = TextInput(label="Tipo de PIX",          max_length=30, required=True, placeholder="CPF, E-mail, Telefone, Aleatória")
+        self.chave = TextInput(label="Chave PIX",            max_length=120, required=True, placeholder="000.000.000-00")
+        self.add_item(self.nome); self.add_item(self.tipo); self.add_item(self.chave)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        config["global"].setdefault("mediadores", {})
+        config["global"]["mediadores"][str(interaction.user.id)] = {
+            "nome":  self.nome.value.strip(),
+            "tipo":  self.tipo.value.strip(),
+            "chave": self.chave.value.strip(),
+        }
+        salvar_config(config)
+        await _atualizar_painel_mediador(self.painel_med_msg, config)
+        await interaction.response.send_message(f"✅ PIX cadastrado!\n• **Nome:** `{self.nome.value}`\n• **Tipo:** `{self.tipo.value}`\n• **Chave:** `{self.chave.value}`", ephemeral=True)
 
 
 # ──────────────────────────────────────────────
@@ -604,28 +793,61 @@ class ConfigGeralView(View):
     def __init__(self, painel_msg=None):
         super().__init__(timeout=300)
         self.painel_msg = painel_msg
+        self.add_item(_RoleSelectMax(painel_msg))
         self.add_item(_RoleSelectAdm(painel_msg))
+        self.add_item(_RoleSelectMediador(painel_msg))
         self.add_item(_CanalSelectCategoria(painel_msg))
         self.add_item(_BtnVoltarPainelGeral(painel_msg))
 
 
-class _RoleSelectAdm(RoleSelect):
+class _RoleSelectMax(RoleSelect):
     def __init__(self, painel_msg):
-        super().__init__(placeholder="🛡️ Selecione o Cargo ADM...", min_values=1, max_values=1, row=0)
+        super().__init__(placeholder="👑 Selecione o Cargo de Permissão Máxima...", min_values=0, max_values=1, row=0)
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
         config = carregar_config()
-        config["global"]["cargo_adm_id"] = self.values[0].id
+        config["global"]["cargo_max_id"] = self.values[0].id if self.values else None
         salvar_config(config)
         await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
-        await interaction.followup.send(f"✅ Cargo ADM: {self.values[0].mention}", ephemeral=True)
+        txt = f"✅ Permissão máxima: {self.values[0].mention}" if self.values else "✅ Permissão máxima removida."
+        await interaction.followup.send(txt, ephemeral=True)
+        await _atualizar_painel(self.painel_msg, config)
+
+
+class _RoleSelectAdm(RoleSelect):
+    def __init__(self, painel_msg):
+        super().__init__(placeholder="🛡️ Selecione o Cargo ADM (notificado)...", min_values=0, max_values=1, row=1)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        config["global"]["cargo_adm_id"] = self.values[0].id if self.values else None
+        salvar_config(config)
+        await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
+        txt = f"✅ Cargo ADM: {self.values[0].mention}" if self.values else "✅ Cargo ADM removido."
+        await interaction.followup.send(txt, ephemeral=True)
+        await _atualizar_painel(self.painel_msg, config)
+
+
+class _RoleSelectMediador(RoleSelect):
+    def __init__(self, painel_msg):
+        super().__init__(placeholder="🤝 Selecione o Cargo Mediador...", min_values=0, max_values=1, row=2)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        config["global"]["cargo_mediador_id"] = self.values[0].id if self.values else None
+        salvar_config(config)
+        await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
+        txt = f"✅ Cargo Mediador: {self.values[0].mention}" if self.values else "✅ Cargo Mediador removido."
+        await interaction.followup.send(txt, ephemeral=True)
         await _atualizar_painel(self.painel_msg, config)
 
 
 class _CanalSelectCategoria(ChannelSelect):
     def __init__(self, painel_msg):
-        super().__init__(placeholder="📁 Categoria dos canais de partida (opcional)...", channel_types=[discord.ChannelType.category], min_values=0, max_values=1, row=1)
+        super().__init__(placeholder="📁 Categoria dos canais de partida (opcional)...", channel_types=[discord.ChannelType.category], min_values=0, max_values=1, row=3)
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -640,7 +862,39 @@ class _CanalSelectCategoria(ChannelSelect):
 
 class _BtnVoltarPainelGeral(Button):
     def __init__(self, painel_msg):
-        super().__init__(label="◀️  Voltar", style=discord.ButtonStyle.secondary, row=2)
+        super().__init__(label="◀️  Voltar", style=discord.ButtonStyle.secondary, row=4)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.edit_message(embed=build_embed_painel_geral(config), view=PainelPrincipalView(self.painel_msg))
+
+
+# ──────────────────────────────────────────────
+# View: Embed Global
+# ──────────────────────────────────────────────
+
+class EmbedGlobalView(View):
+    def __init__(self, painel_msg=None):
+        super().__init__(timeout=300)
+        self.painel_msg = painel_msg
+        self.add_item(_BtnEditarEmbedGlobal(painel_msg))
+        self.add_item(_BtnVoltarPainelDeEmbedGlobal(painel_msg))
+
+
+class _BtnEditarEmbedGlobal(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="✏️  Editar Embed Global", style=discord.ButtonStyle.primary, row=0)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.send_modal(EditarEmbedGlobalModal(config, self.painel_msg))
+
+
+class _BtnVoltarPainelDeEmbedGlobal(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="◀️  Voltar", style=discord.ButtonStyle.secondary, row=0)
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -661,12 +915,15 @@ class PainelPrincipalView(View):
             self.add_item(_BtnCategoria(cat, painel_msg))
         # Row 1: ações globais
         self.add_item(_BtnConfigGeral(painel_msg))
+        self.add_item(_BtnEmbedGlobal(painel_msg))
+        self.add_item(_BtnFilasToggle(painel_msg))
         self.add_item(_BtnPublicar(painel_msg))
 
     def set_message(self, msg):
         self.painel_msg = msg
         for item in self.children:
-            item.painel_msg = msg
+            if hasattr(item, "painel_msg"):
+                item.painel_msg = msg
 
 
 class _BtnCategoria(Button):
@@ -689,16 +946,57 @@ class _BtnConfigGeral(Button):
         await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
 
 
+class _BtnEmbedGlobal(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="🎨  Embed Global", style=discord.ButtonStyle.primary, row=1)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.edit_message(embed=build_embed_config_embed_global(config), view=EmbedGlobalView(self.painel_msg))
+
+
+class _BtnFilasToggle(Button):
+    def __init__(self, painel_msg):
+        config = carregar_config()
+        ativas = config.get("global", {}).get("filas_ativas", True)
+        super().__init__(
+            label="🛑  Filas OFF" if ativas else "🟢  Filas ON",
+            style=discord.ButtonStyle.danger if ativas else discord.ButtonStyle.success,
+            row=1,
+        )
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        atual = config["global"].get("filas_ativas", True)
+        config["global"]["filas_ativas"] = not atual
+        salvar_config(config)
+
+        # Atualiza painel
+        view = PainelPrincipalView(self.painel_msg)
+        view.set_message(self.painel_msg)
+        await interaction.response.edit_message(embed=build_embed_painel_geral(config), view=view)
+
+        # Atualiza mensagens de status nos canais
+        await _atualizar_status_filas(interaction.guild, config)
+
+        await interaction.followup.send(
+            f"🛑 **Filas DESATIVADAS**" if atual else "🟢 **Filas ATIVADAS**",
+            ephemeral=True,
+        )
+
+
 class _BtnPublicar(Button):
     def __init__(self, painel_msg):
         super().__init__(label="🚀  Publicar Filas", style=discord.ButtonStyle.success, row=1)
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        if not interaction.user.guild_permissions.manage_channels:
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
         await interaction.response.defer(ephemeral=True)
-        config = carregar_config()
         sem_canal  = [ch for ch in ALL_MODOS if not config[ch].get("canal_id")]
         sem_precos = [ch for ch in ALL_MODOS if not config[ch].get("precos")]
         erros = []
@@ -729,6 +1027,10 @@ class _EntrarBtn(Button):
 
     async def callback(self, interaction: discord.Interaction):
         config = carregar_config()
+
+        if not config.get("global", {}).get("filas_ativas", True):
+            await interaction.response.send_message("🛑 As filas estão **desativadas** no momento.", ephemeral=True); return
+
         ch, preco = encontrar_preco(config, self.preco_id)
         if preco is None:
             await interaction.response.send_message("❌ Esta fila não existe mais.", ephemeral=True); return
@@ -782,9 +1084,9 @@ class _LimparBtn(Button):
         self.preco_id = preco_id
 
     async def callback(self, interaction: discord.Interaction):
-        if not interaction.user.guild_permissions.manage_channels:
-            await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
         config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
         ch, preco = encontrar_preco(config, self.preco_id)
         if preco is None:
             await interaction.response.send_message("❌ Esta fila não existe mais.", ephemeral=True); return
@@ -796,12 +1098,116 @@ class _LimparBtn(Button):
 
 
 # ──────────────────────────────────────────────
+# View: Painel Mediador
+# ──────────────────────────────────────────────
+
+# Dicionário {channel_id: message_id} para rastrear painéis de mediador publicados (em RAM)
+_painel_mediador_msgs: dict[int, int] = {}
+
+
+async def _atualizar_painel_mediador(painel_med_msg, config):
+    if painel_med_msg:
+        try:
+            await painel_med_msg.edit(embed=build_embed_painel_mediador(config))
+        except Exception:
+            pass
+
+    # Atualiza todos os painéis de mediador conhecidos
+    for canal_id, msg_id in list(_painel_mediador_msgs.items()):
+        try:
+            canal = bot.get_channel(canal_id)
+            if not canal:
+                continue
+            msg = await canal.fetch_message(msg_id)
+            await msg.edit(embed=build_embed_painel_mediador(config))
+        except Exception:
+            pass
+
+
+class PainelMediadorView(View):
+    def __init__(self, painel_med_msg=None):
+        super().__init__(timeout=None)
+        self.add_item(_BtnCadastrarPix(painel_med_msg))
+        self.add_item(_BtnEntrarFilaMediador(painel_med_msg))
+        self.add_item(_BtnSairFilaMediador(painel_med_msg))
+        self.add_item(_BtnLimparFilaMediador(painel_med_msg))
+
+
+class _BtnCadastrarPix(Button):
+    def __init__(self, painel_med_msg):
+        super().__init__(label="Cadastrar PIX", emoji="💳", style=discord.ButtonStyle.primary, custom_id="med_cadastrar_pix")
+        self.painel_med_msg = painel_med_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_e_mediador(interaction.user, config):
+            await interaction.response.send_message("❌ Apenas mediadores podem usar este painel.", ephemeral=True); return
+        await interaction.response.send_modal(CadastrarPixModal(self.painel_med_msg))
+
+
+class _BtnEntrarFilaMediador(Button):
+    def __init__(self, painel_med_msg):
+        super().__init__(label="Entrar na Fila", emoji="✅", style=discord.ButtonStyle.success, custom_id="med_entrar_fila")
+        self.painel_med_msg = painel_med_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_e_mediador(interaction.user, config):
+            await interaction.response.send_message("❌ Apenas mediadores podem usar este painel.", ephemeral=True); return
+
+        uid = str(interaction.user.id)
+        if uid not in config["global"].get("mediadores", {}):
+            await interaction.response.send_message("⚠️ Você precisa **cadastrar seu PIX** antes de entrar na fila!", ephemeral=True); return
+
+        fila = config["global"].setdefault("fila_mediador", [])
+        if uid in fila:
+            await interaction.response.send_message("⚠️ Você já está na fila de mediadores!", ephemeral=True); return
+
+        fila.append(uid)
+        salvar_config(config)
+        await _atualizar_painel_mediador(self.painel_med_msg, config)
+        await interaction.response.send_message(f"✅ Você entrou na fila de mediadores! Posição: **#{len(fila)}**", ephemeral=True)
+
+
+class _BtnSairFilaMediador(Button):
+    def __init__(self, painel_med_msg):
+        super().__init__(label="Sair da Fila", emoji="❌", style=discord.ButtonStyle.danger, custom_id="med_sair_fila")
+        self.painel_med_msg = painel_med_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        uid = str(interaction.user.id)
+        fila = config["global"].setdefault("fila_mediador", [])
+        if uid not in fila:
+            await interaction.response.send_message("⚠️ Você não está na fila!", ephemeral=True); return
+        fila.remove(uid)
+        salvar_config(config)
+        await _atualizar_painel_mediador(self.painel_med_msg, config)
+        await interaction.response.send_message("✅ Você saiu da fila de mediadores.", ephemeral=True)
+
+
+class _BtnLimparFilaMediador(Button):
+    def __init__(self, painel_med_msg):
+        super().__init__(label="Limpar Fila", emoji="🗑️", style=discord.ButtonStyle.secondary, custom_id="med_limpar_fila")
+        self.painel_med_msg = painel_med_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
+        config["global"]["fila_mediador"] = []
+        salvar_config(config)
+        await _atualizar_painel_mediador(self.painel_med_msg, config)
+        await interaction.response.send_message("🗑️ Fila de mediadores limpa.", ephemeral=True)
+
+
+# ──────────────────────────────────────────────
 # Confirmação de partida
 # ──────────────────────────────────────────────
 
-def build_embed_confirmar(ch: str, preco: dict, confirmados: set, jogadores: list) -> discord.Embed:
+def build_embed_confirmar(ch: str, preco: dict, confirmados: set, jogadores: list, config: dict) -> discord.Embed:
     cat, m = split_chave(ch)
-    embed  = discord.Embed(title="🎮  Partida Encontrada!", color=COR_EMBED)
+    embed  = discord.Embed(title="🎮  Partida Encontrada!", color=cor_global(config))
     embed.add_field(name="Categoria", value=f"{EMOJI_CATEGORIA[cat]} {cat}", inline=True)
     embed.add_field(name="Modo",      value=f"{EMOJI_MODO[m]} {m}",          inline=True)
     embed.add_field(name="Valor",     value=preco["valor"],                   inline=True)
@@ -809,7 +1215,7 @@ def build_embed_confirmar(ch: str, preco: dict, confirmados: set, jogadores: lis
     embed.add_field(name="Confirmações", value="\n".join(linhas), inline=False)
     if len(confirmados) >= len(jogadores):
         embed.color = discord.Color.green()
-        embed.add_field(name="\u200b", value="🔥 **Todos confirmaram! Administrador sendo notificado...**", inline=False)
+        embed.add_field(name="\u200b", value="🔥 **Todos confirmaram! Mediador e ADM sendo notificados...**", inline=False)
     else:
         restam = len(jogadores) - len(confirmados)
         embed.add_field(name="\u200b", value=f"⏳ Aguardando **{restam}** confirmação(ões)...", inline=False)
@@ -818,23 +1224,38 @@ def build_embed_confirmar(ch: str, preco: dict, confirmados: set, jogadores: lis
 
 
 class ConfirmarPartidaView(View):
-    def __init__(self, ch, preco, jogadores, canal_partida, cargo_adm_id):
+    def __init__(self, ch, preco, jogadores, canal_partida, cargo_adm_id, mediador_uid, mediador_data, cargo_mediador_id, config_ref):
         super().__init__(timeout=120)
-        self.ch, self.preco     = ch, preco
-        self.jogadores          = jogadores
-        self.confirmados        = set()
-        self.canal_partida      = canal_partida
-        self.cargo_adm_id       = cargo_adm_id
-        self.finalizado         = False
+        self.ch, self.preco         = ch, preco
+        self.jogadores              = jogadores
+        self.confirmados            = set()
+        self.canal_partida          = canal_partida
+        self.cargo_adm_id           = cargo_adm_id
+        self.mediador_uid           = mediador_uid
+        self.mediador_data          = mediador_data
+        self.cargo_mediador_id      = cargo_mediador_id
+        self.config_ref             = config_ref
+        self.finalizado             = False
         self.add_item(_BtnConfirmar(self))
 
     async def _atualizar_embed(self, interaction):
-        await interaction.response.edit_message(embed=build_embed_confirmar(self.ch, self.preco, self.confirmados, self.jogadores), view=self)
+        await interaction.response.edit_message(embed=build_embed_confirmar(self.ch, self.preco, self.confirmados, self.jogadores, self.config_ref), view=self)
 
     async def _todos_confirmaram(self, interaction):
         self.finalizado = True
         self.stop()
-        await interaction.response.edit_message(embed=build_embed_confirmar(self.ch, self.preco, self.confirmados, self.jogadores), view=None)
+        await interaction.response.edit_message(embed=build_embed_confirmar(self.ch, self.preco, self.confirmados, self.jogadores, self.config_ref), view=None)
+
+        # Mostra o PIX do mediador (se houver)
+        if self.mediador_uid and self.mediador_data:
+            pix_embed = build_embed_pix_mediador(self.mediador_uid, self.mediador_data, self.ch, self.preco)
+            await self.canal_partida.send(content=f"<@{self.mediador_uid}>", embed=pix_embed)
+        elif self.cargo_mediador_id:
+            cargo_med = interaction.guild.get_role(self.cargo_mediador_id)
+            if cargo_med:
+                await self.canal_partida.send(f"⚠️ {cargo_med.mention} — partida `{self.preco['valor']}` ({display(self.ch)}) **sem mediador na fila**! Algum mediador disponível?")
+
+        # Notifica o cargo ADM
         if self.cargo_adm_id:
             cargo = interaction.guild.get_role(self.cargo_adm_id)
             if cargo:
@@ -847,6 +1268,18 @@ class ConfirmarPartidaView(View):
         if self.finalizado:
             return
         nao = [uid for uid in self.jogadores if uid not in self.confirmados]
+
+        # Devolve o mediador à fila se ele tinha sido puxado (a partida não rolou)
+        if self.mediador_uid:
+            try:
+                cfg = carregar_config()
+                fila = cfg["global"].setdefault("fila_mediador", [])
+                if self.mediador_uid not in fila:
+                    fila.insert(0, self.mediador_uid)
+                    salvar_config(cfg)
+            except Exception:
+                pass
+
         try:
             embed = discord.Embed(title="⏰ Tempo Esgotado!", description="Não confirmaram: " + " ".join(f"<@{u}>" for u in nao) + "\n\nCanal fecha em 15 segundos.", color=discord.Color.red())
             await self.canal_partida.send(embed=embed)
@@ -878,11 +1311,29 @@ async def _fila_completa(interaction: discord.Interaction, ch: str, preco: dict,
     guild      = interaction.guild
     global_cfg = config.get("global", {})
     cargo_id   = global_cfg.get("cargo_adm_id")
+    cargo_med  = global_cfg.get("cargo_mediador_id")
     cat_id     = global_cfg.get("categoria_id")
+
+    # Puxa o próximo mediador da fila (se houver)
+    mediador_uid  = None
+    mediador_data = None
+    fila_med = global_cfg.setdefault("fila_mediador", [])
+    if fila_med:
+        mediador_uid = fila_med.pop(0)
+        mediadores = global_cfg.get("mediadores", {})
+        mediador_data = mediadores.get(str(mediador_uid))
+        salvar_config(config)
+        # Atualiza painéis de mediador publicados
+        await _atualizar_painel_mediador(None, config)
 
     overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False)}
     for uid in jogadores:
         m = guild.get_member(int(uid))
+        if m:
+            overwrites[m] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
+    # Mediador também vê o canal
+    if mediador_uid:
+        m = guild.get_member(int(mediador_uid))
         if m:
             overwrites[m] = discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True)
 
@@ -894,11 +1345,12 @@ async def _fila_completa(interaction: discord.Interaction, ch: str, preco: dict,
     except discord.Forbidden:
         await interaction.followup.send("❌ Sem permissão para criar canais.", ephemeral=True); return
 
-    view  = ConfirmarPartidaView(ch, preco, jogadores, canal, cargo_id)
-    embed = build_embed_confirmar(ch, preco, set(), jogadores)
+    view  = ConfirmarPartidaView(ch, preco, jogadores, canal, cargo_id, mediador_uid, mediador_data, cargo_med, config)
+    embed = build_embed_confirmar(ch, preco, set(), jogadores, config)
     mencoes = " ".join(f"<@{uid}>" for uid in jogadores)
     await canal.send(content=mencoes, embed=embed, view=view)
 
+    # Notifica ADM já no início da partida (apenas pinga, sem permissão ainda)
     if cargo_id:
         cargo = guild.get_role(cargo_id)
         if cargo:
@@ -906,15 +1358,42 @@ async def _fila_completa(interaction: discord.Interaction, ch: str, preco: dict,
 
 
 # ──────────────────────────────────────────────
-# FILAS ON — mensagem rotativa a cada 5 minutos
+# FILAS ON / OFF — mensagem rotativa a cada 5 minutos
 # ──────────────────────────────────────────────
 
 _filas_on_msgs: dict[int, int] = {}
 
 
+async def _atualizar_status_filas(guild: discord.Guild, config: dict):
+    """Atualiza imediatamente as mensagens de status FILAS ON/OFF nos canais publicados."""
+    ativas = config.get("global", {}).get("filas_ativas", True)
+    texto = "@everyone  **🟢 FILAS ON**" if ativas else "**🛑 FILAS OFF — entrada desabilitada**"
+
+    for canal_id, msg_id in list(_filas_on_msgs.items()):
+        try:
+            canal = bot.get_channel(canal_id)
+            if not canal:
+                continue
+            try:
+                antiga = await canal.fetch_message(msg_id)
+                await antiga.delete()
+            except Exception:
+                pass
+            nova = await canal.send(texto)
+            _filas_on_msgs[canal_id] = nova.id
+        except Exception:
+            pass
+
+    # Re-renderiza embeds das filas para refletir o status (opcional — apenas tenta)
+    # Os embeds são atualizados quando alguém clica num botão.
+
+
 async def _renovar_filas_on():
     while True:
         await asyncio.sleep(300)
+        config = carregar_config()
+        ativas = config.get("global", {}).get("filas_ativas", True)
+        texto = "@everyone  **🟢 FILAS ON**" if ativas else "**🛑 FILAS OFF — entrada desabilitada**"
         for canal_id, msg_id in list(_filas_on_msgs.items()):
             try:
                 canal = bot.get_channel(canal_id)
@@ -925,7 +1404,7 @@ async def _renovar_filas_on():
                     await antiga.delete()
                 except Exception:
                     pass
-                nova = await canal.send("@everyone  **🟢 FILAS ON**")
+                nova = await canal.send(texto)
                 _filas_on_msgs[canal_id] = nova.id
             except Exception:
                 pass
@@ -939,7 +1418,7 @@ async def _publicar_filas(interaction: discord.Interaction, config: dict):
     header = discord.Embed(
         title="🎮  Central de Filas",
         description="Bem-vindo!\n• Clique no botão do modo para entrar\n• **❌ Sair da fila** para desistir\n• Quando a fila encher, a partida começa! 🏆",
-        color=COR_EMBED,
+        color=cor_global(config),
     )
     canais_header: set = set()
     for ch in ALL_MODOS:
@@ -963,14 +1442,16 @@ async def _publicar_filas(interaction: discord.Interaction, config: dict):
             publicados.append(f"{EMOJI_CATEGORIA[split_chave(ch)[0]]} **{display(ch)}** `{preco['valor']}` → {canal.mention}")
             await asyncio.sleep(0.3)
 
-    # @everyone FILAS ON em cada canal único
+    # Status (FILAS ON / OFF) em cada canal único
+    ativas = config.get("global", {}).get("filas_ativas", True)
+    texto  = "@everyone  **🟢 FILAS ON**" if ativas else "**🛑 FILAS OFF — entrada desabilitada**"
     canais_notif: set = set()
     for ch in ALL_MODOS:
         cid = config[ch].get("canal_id")
         if cid and cid not in canais_notif:
             canal = interaction.guild.get_channel(cid)
             if canal:
-                msg = await canal.send("@everyone  **🟢 FILAS ON**")
+                msg = await canal.send(texto)
                 _filas_on_msgs[cid] = msg.id
                 canais_notif.add(cid)
 
@@ -985,6 +1466,7 @@ class MyBot(discord.Client):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.members = True
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
 
@@ -995,6 +1477,8 @@ class MyBot(discord.Client):
             b2 = config[ch]["botao2"]
             for preco in config[ch].get("precos", []):
                 self.add_view(FilaView(ch, preco["id"], b1, b2))
+        # Painel mediador persistente
+        self.add_view(PainelMediadorView())
         await self.tree.sync()
         print("✅ Slash commands sincronizados.")
 
@@ -1007,9 +1491,22 @@ class MyBot(discord.Client):
 bot = MyBot()
 
 
+# ──────────────────────────────────────────────
+# Permission check para slash commands
+# ──────────────────────────────────────────────
+
+async def _check_pode_admin(interaction: discord.Interaction) -> bool:
+    config = carregar_config()
+    if usuario_pode_admin(interaction.user, config):
+        return True
+    await interaction.response.send_message("❌ Você não tem permissão para usar este comando.", ephemeral=True)
+    return False
+
+
 @bot.tree.command(name="painel", description="Abre o painel de configuração das filas")
-@app_commands.default_permissions(manage_channels=True)
 async def painel(interaction: discord.Interaction):
+    if not await _check_pode_admin(interaction):
+        return
     config = carregar_config()
     view   = PainelPrincipalView()
     await interaction.response.send_message(embed=build_embed_painel_geral(config), view=view, ephemeral=True)
@@ -1018,8 +1515,9 @@ async def painel(interaction: discord.Interaction):
 
 
 @bot.tree.command(name="criarfilas", description="Publica os embeds de fila nos canais configurados")
-@app_commands.default_permissions(manage_channels=True)
 async def criarfilas(interaction: discord.Interaction):
+    if not await _check_pode_admin(interaction):
+        return
     await interaction.response.defer(ephemeral=True)
     config    = carregar_config()
     sem_canal = [ch for ch in ALL_MODOS if not config[ch].get("canal_id")]
@@ -1027,6 +1525,43 @@ async def criarfilas(interaction: discord.Interaction):
         await interaction.followup.send(f"⚠️ Configure os canais com `/painel`. Sem canal: {len(sem_canal)} modo(s).", ephemeral=True)
         return
     await _publicar_filas(interaction, config)
+
+
+@bot.tree.command(name="painel_mediador", description="Publica o painel de mediadores no canal atual")
+async def painel_mediador(interaction: discord.Interaction):
+    if not await _check_pode_admin(interaction):
+        return
+    config = carregar_config()
+    embed  = build_embed_painel_mediador(config)
+    view   = PainelMediadorView()
+    msg    = await interaction.channel.send(embed=embed, view=view)
+    _painel_mediador_msgs[interaction.channel.id] = msg.id
+    # Atualiza a view com a referência da msg
+    novaview = PainelMediadorView(msg)
+    await msg.edit(view=novaview)
+    await interaction.response.send_message("✅ Painel de mediadores publicado!", ephemeral=True)
+
+
+@bot.tree.command(name="filas_off", description="Desativa as filas (ninguém pode entrar)")
+async def filas_off(interaction: discord.Interaction):
+    if not await _check_pode_admin(interaction):
+        return
+    config = carregar_config()
+    config["global"]["filas_ativas"] = False
+    salvar_config(config)
+    await _atualizar_status_filas(interaction.guild, config)
+    await interaction.response.send_message("🛑 **Filas DESATIVADAS** — ninguém pode entrar nas filas até serem reativadas.", ephemeral=True)
+
+
+@bot.tree.command(name="filas_on", description="Reativa as filas")
+async def filas_on(interaction: discord.Interaction):
+    if not await _check_pode_admin(interaction):
+        return
+    config = carregar_config()
+    config["global"]["filas_ativas"] = True
+    salvar_config(config)
+    await _atualizar_status_filas(interaction.guild, config)
+    await interaction.response.send_message("🟢 **Filas ATIVADAS** — os jogadores já podem entrar.", ephemeral=True)
 
 
 def _run_health_server():
