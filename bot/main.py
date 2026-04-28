@@ -1804,6 +1804,47 @@ async def filas_on(interaction: discord.Interaction):
     await interaction.response.send_message("🟢 **Filas ATIVADAS** — os jogadores já podem entrar.", ephemeral=True)
 
 
+@bot.tree.command(name="vencedor", description="Define o vencedor da partida e fecha o canal em 10 segundos")
+@app_commands.describe(vencedor="Jogador que venceu a partida (digite o nick para buscar)")
+async def vencedor_cmd(interaction: discord.Interaction, vencedor: discord.Member):
+    config = carregar_config()
+    if not (usuario_pode_admin(interaction.user, config) or usuario_e_mediador(interaction.user, config)):
+        await interaction.response.send_message(
+            "❌ Apenas **administradores**, **permissão máxima** ou **mediadores** podem definir o vencedor.",
+            ephemeral=True,
+        ); return
+
+    canal = interaction.channel
+    if not isinstance(canal, discord.TextChannel) or not canal.name.startswith("partida-"):
+        await interaction.response.send_message(
+            "❌ Use este comando **dentro de um canal de partida** (canais que começam com `partida-`).",
+            ephemeral=True,
+        ); return
+
+    embed = discord.Embed(
+        title="🏆  Vencedor da Partida!",
+        description=f"# 🥇 {vencedor.mention}\n\n**Parabéns pela vitória!** 🎉",
+        color=0xF1C40F,
+    )
+    embed.set_thumbnail(url=vencedor.display_avatar.url)
+    embed.add_field(name="📛 Vencedor",      value=f"`{vencedor.display_name}`",  inline=True)
+    embed.add_field(name="👤 Definido por",  value=interaction.user.mention,       inline=True)
+    embed.add_field(name="⏳ Canal fecha em", value="**10 segundos**",             inline=True)
+    embed.set_footer(text="GG! Até a próxima partida 🎮")
+
+    banner = config.get("global", {}).get("embed_global", {}).get("banner", "")
+    if banner:
+        embed.set_image(url=banner)
+
+    await interaction.response.send_message(embed=embed)
+
+    await asyncio.sleep(10)
+    try:
+        await canal.delete(reason=f"Partida finalizada — vencedor: {vencedor}")
+    except Exception:
+        pass
+
+
 @bot.tree.command(name="aparencia", description="Personalize a aparência do bot neste servidor (apelido, foto, banner, bio)")
 async def aparencia(interaction: discord.Interaction):
     if not await _check_pode_admin(interaction):

@@ -30,6 +30,7 @@ Located in `bot/` (Python 3.11, discord.py 2.7+). Runs via the `Discord Queue Bo
 - `/filas_off` — desativa filas globalmente
 - `/filas_on` — reativa filas
 - `/aparencia` — personaliza apelido, foto, banner e bio (informativa) do bot **por servidor**
+- `/vencedor <usuario>` — define o vencedor da partida atual (canal `partida-...`), exibe embed de vitória e fecha o canal em 10 segundos. Disponível para admin/permissão máxima/mediador.
 
 ### Limitações conhecidas (Discord API)
 
