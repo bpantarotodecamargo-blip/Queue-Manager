@@ -1702,13 +1702,30 @@ class MyBot(discord.Client):
                 self.add_view(FilaView(ch, preco["id"], b1, b2))
         # Painel mediador persistente
         self.add_view(PainelMediadorView())
+        # Sync global (pode demorar até 1h pra propagar)
         await self.tree.sync()
-        print("✅ Slash commands sincronizados.")
+        print("✅ Slash commands globais sincronizados.")
 
     async def on_ready(self):
         print(f"🤖 Bot conectado como {self.user} (ID: {self.user.id})")
+        # Sync por guild — comandos aparecem imediatamente em cada servidor
+        for guild in self.guilds:
+            try:
+                self.tree.copy_global_to(guild=guild)
+                synced = await self.tree.sync(guild=guild)
+                print(f"   ↳ {len(synced)} comandos sincronizados em '{guild.name}'")
+            except Exception as e:
+                print(f"   ⚠️ Falha ao sincronizar em '{guild.name}': {e}")
         await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="as filas 🎮"))
         asyncio.create_task(_renovar_filas_on())
+
+    async def on_guild_join(self, guild: discord.Guild):
+        try:
+            self.tree.copy_global_to(guild=guild)
+            await self.tree.sync(guild=guild)
+            print(f"✅ Comandos sincronizados ao entrar em '{guild.name}'")
+        except Exception as e:
+            print(f"⚠️ Erro ao sincronizar em '{guild.name}': {e}")
 
 
 bot = MyBot()
