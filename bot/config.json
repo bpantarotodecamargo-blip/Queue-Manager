@@ -120,6 +120,47 @@
       "modo": "1v1",
       "fila": [],
       "aberta": true
+    },
+    "painel_streamer_embed": {
+      "titulo": "Fila contra @hebigg",
+      "descricao": "",
+      "subtitulo": "SO FREE FIRE",
+      "instrucoes": "• Clique em **Jogar Contra** para abrir um desafio.\n• O desafio expira automaticamente se não for aceito.",
+      "info_jogo": "Jogando contra membros",
+      "banner": "",
+      "thumbnail": ""
+    },
+    "painel_mediador_embed": {
+      "titulo": "🤝  Painel de Mediadores",
+      "descricao": "",
+      "banner": "",
+      "thumbnail": ""
+    },
+    "painel_streamer_botoes": {
+      "jogar_contra": {
+        "emoji": "🚪",
+        "label": "Jogar Contra"
+      },
+      "gear": {
+        "emoji": "⚙️",
+        "label": ""
+      },
+      "entrar": {
+        "emoji": "✅",
+        "label": "Entrar na Fila"
+      },
+      "sair": {
+        "emoji": "❌",
+        "label": "Sair da Fila"
+      },
+      "proximo": {
+        "emoji": "🎮",
+        "label": "Chamar Próximo"
+      },
+      "toggle": {
+        "emoji": "🔁",
+        "label": "Abrir/Fechar"
+      }
     }
   },
   "Mobile_1v1": {

@@ -127,6 +127,12 @@ def _modo_padrao(ch: str) -> dict:
         "botao1":    {"emoji": "🎮", "label": "Opção 1"},
         "botao2":    {"emoji": "🔫", "label": "Opção 2"},
         "precos":    [{"id": gerar_id(), "valor": "R$ 1,00", "jogadores": []}],
+        # Layout/texto personalizável (placeholders: {titulo} {categoria} {modo}
+        # {valor} {jogadores} {jogadores_count} {jogadores_total} {vagas})
+        "descricao_template":     "",
+        "texto_jogadores_vazio":  "",
+        "texto_fila_completa":    "",
+        "rodape":                 "",
     }
 
 
@@ -228,6 +234,10 @@ def carregar_config() -> dict:
         cfg.setdefault("botao1",    {"emoji": "🎮", "label": "Opção 1"})
         cfg.setdefault("botao2",    {"emoji": "🔫", "label": "Opção 2"})
         cfg.setdefault("precos",    [{"id": gerar_id(), "valor": "R$ 1,00", "jogadores": []}])
+        cfg.setdefault("descricao_template",    "")
+        cfg.setdefault("texto_jogadores_vazio", "")
+        cfg.setdefault("texto_fila_completa",   "")
+        cfg.setdefault("rodape",                "")
 
         for p in cfg["precos"]:
             p.setdefault("id",        gerar_id())
@@ -284,6 +294,44 @@ def usuario_e_mediador(member: discord.Member, config: dict) -> bool:
 # Embeds
 # ──────────────────────────────────────────────
 
+PLACEHOLDERS_AJUDA = (
+    "Placeholders: `{titulo}` `{categoria}` `{categoria_emoji}` `{modo}` "
+    "`{modo_emoji}` `{valor}` `{jogadores}` `{jogadores_count}` "
+    "`{jogadores_total}` `{vagas}`"
+)
+
+
+def _ctx_fila(ch: str, preco: dict, config: dict) -> dict:
+    """Monta o dicionário de placeholders que pode ser usado nos templates do embed da fila."""
+    cfg       = config[ch]
+    cat, m    = split_chave(ch)
+    jogadores = preco.get("jogadores", [])
+    total     = jogadores_da_chave(ch)
+    lista_jog = "\n".join(f"{i+1}. <@{uid}>" for i, uid in enumerate(jogadores)) or "*Nenhum jogador na fila.*"
+    return {
+        "titulo":            cfg.get("titulo", display(ch)),
+        "categoria":         cat,
+        "categoria_emoji":   EMOJI_CATEGORIA.get(cat, ""),
+        "modo":              m,
+        "modo_emoji":        EMOJI_MODO.get(m, ""),
+        "valor":             preco.get("valor", ""),
+        "jogadores":         lista_jog,
+        "jogadores_count":   len(jogadores),
+        "jogadores_total":   total,
+        "vagas":             max(total - len(jogadores), 0),
+    }
+
+
+def _render_template(tpl: str, ctx: dict) -> str:
+    """Substitui placeholders sem quebrar se algum não existir."""
+    if not tpl:
+        return ""
+    out = tpl
+    for k, v in ctx.items():
+        out = out.replace("{" + k + "}", str(v))
+    return out
+
+
 def build_embed_fila(ch: str, preco: dict, config: dict) -> discord.Embed:
     cfg       = config[ch]
     cat, m    = split_chave(ch)
@@ -291,21 +339,46 @@ def build_embed_fila(ch: str, preco: dict, config: dict) -> discord.Embed:
     total     = jogadores_da_chave(ch)
     g         = config.get("global", {})
 
-    embed = discord.Embed(title=cfg["titulo"], color=cor_global(config))
-    embed.add_field(name="Categoria", value=f"{EMOJI_CATEGORIA[cat]} {cat}", inline=True)
-    embed.add_field(name="Modo",      value=f"{EMOJI_MODO[m]} {m}",          inline=True)
-    embed.add_field(name="Valor",     value=f"**{preco['valor']}**",          inline=True)
+    ctx = _ctx_fila(ch, preco, config)
 
-    if not g.get("filas_ativas", True):
-        embed.add_field(name="\u200b", value="🛑 **FILAS DESATIVADAS**", inline=False)
-    elif jogadores:
-        lista = "\n".join(f"{i+1}. <@{uid}>" for i, uid in enumerate(jogadores))
-        embed.add_field(name=f"Jogadores ({len(jogadores)}/{total})", value=lista, inline=False)
+    # Descrição: se houver template customizado, usa ele (com placeholders);
+    # caso contrário, mantém o layout padrão por campos.
+    descricao_template = cfg.get("descricao_template", "")
+    if descricao_template:
+        embed = discord.Embed(
+            title=_render_template(cfg["titulo"], ctx),
+            description=_render_template(descricao_template, ctx),
+            color=cor_global(config),
+        )
+        # Mensagens de status sobrepostas (continuam aparecendo como campos finais)
+        if not g.get("filas_ativas", True):
+            embed.add_field(name="\u200b", value="🛑 **FILAS DESATIVADAS**", inline=False)
+        elif len(jogadores) >= total:
+            txt_full = cfg.get("texto_fila_completa") or "🔥 **Fila completa! Partida iniciando...**"
+            embed.add_field(name="\u200b", value=_render_template(txt_full, ctx), inline=False)
     else:
-        embed.add_field(name="Jogadores", value="Nenhum jogador na fila.", inline=False)
+        # Layout clássico (campos separados)
+        embed = discord.Embed(title=_render_template(cfg["titulo"], ctx), color=cor_global(config))
+        embed.add_field(name="Categoria", value=f"{EMOJI_CATEGORIA[cat]} {cat}", inline=True)
+        embed.add_field(name="Modo",      value=f"{EMOJI_MODO[m]} {m}",          inline=True)
+        embed.add_field(name="Valor",     value=f"**{preco['valor']}**",          inline=True)
 
-    if g.get("filas_ativas", True) and len(jogadores) >= total:
-        embed.add_field(name="\u200b", value="🔥 **Fila completa! Partida iniciando...**", inline=False)
+        if not g.get("filas_ativas", True):
+            embed.add_field(name="\u200b", value="🛑 **FILAS DESATIVADAS**", inline=False)
+        elif jogadores:
+            lista = "\n".join(f"{i+1}. <@{uid}>" for i, uid in enumerate(jogadores))
+            embed.add_field(name=f"Jogadores ({len(jogadores)}/{total})", value=lista, inline=False)
+        else:
+            txt_vazio = cfg.get("texto_jogadores_vazio") or "Nenhum jogador na fila."
+            embed.add_field(name="Jogadores", value=_render_template(txt_vazio, ctx), inline=False)
+
+        if g.get("filas_ativas", True) and len(jogadores) >= total:
+            txt_full = cfg.get("texto_fila_completa") or "🔥 **Fila completa! Partida iniciando...**"
+            embed.add_field(name="\u200b", value=_render_template(txt_full, ctx), inline=False)
+
+    rodape = cfg.get("rodape", "")
+    if rodape:
+        embed.set_footer(text=_render_template(rodape, ctx))
 
     thumb = thumb_efetiva(config, ch)
     banner = banner_efetivo(config, ch)
@@ -571,6 +644,97 @@ class EditarEmbedGlobalModal(Modal):
         await _atualizar_painel(self.painel_msg, config)
 
 
+class EditarLayoutModal(Modal):
+    """Modal para personalizar TEXTOS do embed da fila usando placeholders.
+    Placeholders disponíveis: {titulo} {categoria} {categoria_emoji} {modo}
+    {modo_emoji} {valor} {jogadores} {jogadores_count} {jogadores_total} {vagas}"""
+    def __init__(self, ch: str, config: dict, painel_msg=None):
+        super().__init__(title=f"Editar Texto — {display(ch)}"[:45])
+        self.ch, self.painel_msg = ch, painel_msg
+        cfg = config[ch]
+
+        self.titulo = TextInput(
+            label="Título (placeholders OK)",
+            default=cfg.get("titulo", display(ch)),
+            max_length=200, required=True,
+            placeholder="Fila {modo} • {valor}",
+        )
+        self.descricao = TextInput(
+            label="Descrição/Layout (deixa vazio = padrão)",
+            default=cfg.get("descricao_template", ""),
+            required=False, max_length=2000,
+            style=discord.TextStyle.paragraph,
+            placeholder="🎮 **Modo:** {modo_emoji} {modo}\n💰 **Valor:** {valor}\n\n👥 **Jogadores ({jogadores_count}/{jogadores_total})**\n{jogadores}",
+        )
+        self.txt_vazio = TextInput(
+            label="Texto quando NÃO tem jogadores",
+            default=cfg.get("texto_jogadores_vazio", ""),
+            required=False, max_length=300,
+            placeholder="Nenhum jogador na fila. Faltam {jogadores_total} pessoas.",
+        )
+        self.txt_cheio = TextInput(
+            label="Texto quando fila ENCHE",
+            default=cfg.get("texto_fila_completa", ""),
+            required=False, max_length=300,
+            placeholder="🔥 Fila {modo} cheia! Iniciando partida de {valor}…",
+        )
+        self.rodape = TextInput(
+            label="Rodapé (footer)",
+            default=cfg.get("rodape", ""),
+            required=False, max_length=200,
+            placeholder="{categoria} • {modo} • {valor}",
+        )
+        for it in (self.titulo, self.descricao, self.txt_vazio, self.txt_cheio, self.rodape):
+            self.add_item(it)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        cfg = config[self.ch]
+        cfg["titulo"]                = self.titulo.value.strip()
+        cfg["descricao_template"]    = self.descricao.value.strip()
+        cfg["texto_jogadores_vazio"] = self.txt_vazio.value.strip()
+        cfg["texto_fila_completa"]   = self.txt_cheio.value.strip()
+        cfg["rodape"]                = self.rodape.value.strip()
+        salvar_config(config)
+        cat, _ = split_chave(self.ch)
+        await interaction.response.edit_message(
+            embed=build_embed_config_modo(self.ch, config),
+            view=ModoConfigView(self.ch, cat, self.painel_msg),
+        )
+        # Atualiza embeds publicados desta fila
+        await _republicar_embeds_modo(self.ch, config)
+        await interaction.followup.send(
+            f"✅ Texto/layout do embed atualizado!\n{PLACEHOLDERS_AJUDA}",
+            ephemeral=True,
+        )
+
+
+# Registro de mensagens de fila publicadas para republicação ao editar layout.
+# Estrutura: { preco_id: (canal_id, message_id) }
+_filas_msg_ids: dict[str, tuple] = {}
+
+
+async def _republicar_embeds_modo(ch: str, config: dict):
+    """Atualiza todas as mensagens de fila publicadas deste modo (em todos os preços)."""
+    for preco in config[ch].get("precos", []):
+        info = _filas_msg_ids.get(preco["id"])
+        if not info:
+            continue
+        canal_id, msg_id = info
+        canal = bot.get_channel(canal_id)
+        if not canal:
+            continue
+        try:
+            msg = await canal.fetch_message(msg_id)
+            b1, b2 = config[ch]["botao1"], config[ch]["botao2"]
+            await msg.edit(
+                embed=build_embed_fila(ch, preco, config),
+                view=FilaView(ch, preco["id"], b1, b2),
+            )
+        except Exception:
+            pass
+
+
 class EditarBotoesModal(Modal):
     def __init__(self, ch: str, config: dict, painel_msg=None):
         super().__init__(title=f"Editar Botões — {display(ch)}"[:45])
@@ -750,6 +914,7 @@ class ModoConfigView(View):
         self.add_item(_CanalSelect(ch, painel_msg))
         self.add_item(_BtnEditarEmbed(ch, painel_msg))
         self.add_item(_BtnEditarBotoes(ch, painel_msg))
+        self.add_item(_BtnEditarLayout(ch, painel_msg))
         self.add_item(_BtnGerenciarPrecos(ch, painel_msg))
         self.add_item(_BtnVoltarCategoria(cat, painel_msg))
 
@@ -788,6 +953,16 @@ class _BtnEditarBotoes(Button):
     async def callback(self, interaction: discord.Interaction):
         config = carregar_config()
         await interaction.response.send_modal(EditarBotoesModal(self.ch, config, self.painel_msg))
+
+
+class _BtnEditarLayout(Button):
+    def __init__(self, ch, painel_msg):
+        super().__init__(label="📝  Texto/Layout", style=discord.ButtonStyle.secondary, row=1)
+        self.ch, self.painel_msg = ch, painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.send_modal(EditarLayoutModal(self.ch, config, self.painel_msg))
 
 
 class _BtnGerenciarPrecos(Button):
@@ -1563,7 +1738,8 @@ async def _publicar_filas(interaction: discord.Interaction, config: dict):
         for preco in config[ch].get("precos", []):
             embed = build_embed_fila(ch, preco, config)
             view  = FilaView(ch, preco["id"], b1, b2)
-            await canal.send(embed=embed, view=view)
+            msg = await canal.send(embed=embed, view=view)
+            _filas_msg_ids[preco["id"]] = (canal.id, msg.id)
             publicados.append(f"{EMOJI_CATEGORIA[split_chave(ch)[0]]} **{display(ch)}** `{preco['valor']}` → {canal.mention}")
             await asyncio.sleep(0.3)
 
