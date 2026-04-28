@@ -127,12 +127,11 @@ def _modo_padrao(ch: str) -> dict:
         "botao1":    {"emoji": "🎮", "label": "Opção 1"},
         "botao2":    {"emoji": "🔫", "label": "Opção 2"},
         "precos":    [{"id": gerar_id(), "valor": "R$ 1,00", "jogadores": []}],
-        # Layout/texto personalizável (placeholders: {titulo} {categoria} {modo}
-        # {valor} {jogadores} {jogadores_count} {jogadores_total} {vagas})
+        # Layout/texto personalizável.
+        # Placeholders no formato [[chave]] — válidos:
+        # [[modo_jogo]], [[valor_partida]], [[jogadores_fila]]
         "descricao_template":     "",
-        "texto_jogadores_vazio":  "",
-        "texto_fila_completa":    "",
-        "rodape":                 "",
+        "cor":                    "",   # HEX por modo (vazio = usa global)
     }
 
 
@@ -234,10 +233,8 @@ def carregar_config() -> dict:
         cfg.setdefault("botao1",    {"emoji": "🎮", "label": "Opção 1"})
         cfg.setdefault("botao2",    {"emoji": "🔫", "label": "Opção 2"})
         cfg.setdefault("precos",    [{"id": gerar_id(), "valor": "R$ 1,00", "jogadores": []}])
-        cfg.setdefault("descricao_template",    "")
-        cfg.setdefault("texto_jogadores_vazio", "")
-        cfg.setdefault("texto_fila_completa",   "")
-        cfg.setdefault("rodape",                "")
+        cfg.setdefault("descricao_template", "")
+        cfg.setdefault("cor",                "")
 
         for p in cfg["precos"]:
             p.setdefault("id",        gerar_id())
@@ -261,6 +258,14 @@ def encontrar_preco(config: dict, preco_id: str):
 
 def cor_global(config: dict) -> int:
     return parse_cor(config.get("global", {}).get("embed_global", {}).get("cor", ""))
+
+
+def cor_efetiva(config: dict, ch: str) -> int:
+    """Cor por modo se definida; senão a global."""
+    cor_modo = config.get(ch, {}).get("cor", "")
+    if cor_modo:
+        return parse_cor(cor_modo)
+    return cor_global(config)
 
 
 def banner_efetivo(config: dict, ch: str) -> str:
@@ -294,41 +299,34 @@ def usuario_e_mediador(member: discord.Member, config: dict) -> bool:
 # Embeds
 # ──────────────────────────────────────────────
 
-PLACEHOLDERS_AJUDA = (
-    "Placeholders: `{titulo}` `{categoria}` `{categoria_emoji}` `{modo}` "
-    "`{modo_emoji}` `{valor}` `{jogadores}` `{jogadores_count}` "
-    "`{jogadores_total}` `{vagas}`"
-)
+# Parâmetros aceitos no template — sintaxe: [[chave]]
+PARAMETROS_INFO = [
+    ("modo_jogo",      "Responsável por informar o modo de jogo (1x1 Mobile, 2x2 Emulador e etc)."),
+    ("valor_partida",  "Responsável por informar o valor das partidas."),
+    ("jogadores_fila", "Responsável por informar os jogadores presentes na fila."),
+]
 
 
 def _ctx_fila(ch: str, preco: dict, config: dict) -> dict:
-    """Monta o dicionário de placeholders que pode ser usado nos templates do embed da fila."""
-    cfg       = config[ch]
+    """Valores reais de cada parâmetro [[...]] para essa fila."""
     cat, m    = split_chave(ch)
     jogadores = preco.get("jogadores", [])
     total     = jogadores_da_chave(ch)
     lista_jog = "\n".join(f"{i+1}. <@{uid}>" for i, uid in enumerate(jogadores)) or "*Nenhum jogador na fila.*"
     return {
-        "titulo":            cfg.get("titulo", display(ch)),
-        "categoria":         cat,
-        "categoria_emoji":   EMOJI_CATEGORIA.get(cat, ""),
-        "modo":              m,
-        "modo_emoji":        EMOJI_MODO.get(m, ""),
-        "valor":             preco.get("valor", ""),
-        "jogadores":         lista_jog,
-        "jogadores_count":   len(jogadores),
-        "jogadores_total":   total,
-        "vagas":             max(total - len(jogadores), 0),
+        "modo_jogo":      f"{EMOJI_MODO.get(m,'')} {m}".strip(),
+        "valor_partida":  preco.get("valor", ""),
+        "jogadores_fila": lista_jog,
     }
 
 
 def _render_template(tpl: str, ctx: dict) -> str:
-    """Substitui placeholders sem quebrar se algum não existir."""
+    """Substitui placeholders no formato [[chave]]."""
     if not tpl:
         return ""
     out = tpl
     for k, v in ctx.items():
-        out = out.replace("{" + k + "}", str(v))
+        out = out.replace(f"[[{k}]]", str(v))
     return out
 
 
@@ -339,26 +337,23 @@ def build_embed_fila(ch: str, preco: dict, config: dict) -> discord.Embed:
     total     = jogadores_da_chave(ch)
     g         = config.get("global", {})
 
-    ctx = _ctx_fila(ch, preco, config)
+    ctx  = _ctx_fila(ch, preco, config)
+    cor  = cor_efetiva(config, ch)
 
-    # Descrição: se houver template customizado, usa ele (com placeholders);
-    # caso contrário, mantém o layout padrão por campos.
     descricao_template = cfg.get("descricao_template", "")
     if descricao_template:
         embed = discord.Embed(
-            title=_render_template(cfg["titulo"], ctx),
+            title=cfg.get("titulo", display(ch)),
             description=_render_template(descricao_template, ctx),
-            color=cor_global(config),
+            color=cor,
         )
-        # Mensagens de status sobrepostas (continuam aparecendo como campos finais)
         if not g.get("filas_ativas", True):
             embed.add_field(name="\u200b", value="🛑 **FILAS DESATIVADAS**", inline=False)
         elif len(jogadores) >= total:
-            txt_full = cfg.get("texto_fila_completa") or "🔥 **Fila completa! Partida iniciando...**"
-            embed.add_field(name="\u200b", value=_render_template(txt_full, ctx), inline=False)
+            embed.add_field(name="\u200b", value="🔥 **Fila completa! Partida iniciando...**", inline=False)
     else:
         # Layout clássico (campos separados)
-        embed = discord.Embed(title=_render_template(cfg["titulo"], ctx), color=cor_global(config))
+        embed = discord.Embed(title=cfg.get("titulo", display(ch)), color=cor)
         embed.add_field(name="Categoria", value=f"{EMOJI_CATEGORIA[cat]} {cat}", inline=True)
         embed.add_field(name="Modo",      value=f"{EMOJI_MODO[m]} {m}",          inline=True)
         embed.add_field(name="Valor",     value=f"**{preco['valor']}**",          inline=True)
@@ -369,16 +364,10 @@ def build_embed_fila(ch: str, preco: dict, config: dict) -> discord.Embed:
             lista = "\n".join(f"{i+1}. <@{uid}>" for i, uid in enumerate(jogadores))
             embed.add_field(name=f"Jogadores ({len(jogadores)}/{total})", value=lista, inline=False)
         else:
-            txt_vazio = cfg.get("texto_jogadores_vazio") or "Nenhum jogador na fila."
-            embed.add_field(name="Jogadores", value=_render_template(txt_vazio, ctx), inline=False)
+            embed.add_field(name="Jogadores", value="Nenhum jogador na fila.", inline=False)
 
         if g.get("filas_ativas", True) and len(jogadores) >= total:
-            txt_full = cfg.get("texto_fila_completa") or "🔥 **Fila completa! Partida iniciando...**"
-            embed.add_field(name="\u200b", value=_render_template(txt_full, ctx), inline=False)
-
-    rodape = cfg.get("rodape", "")
-    if rodape:
-        embed.set_footer(text=_render_template(rodape, ctx))
+            embed.add_field(name="\u200b", value="🔥 **Fila completa! Partida iniciando...**", inline=False)
 
     thumb = thumb_efetiva(config, ch)
     banner = banner_efetivo(config, ch)
@@ -645,66 +634,57 @@ class EditarEmbedGlobalModal(Modal):
 
 
 class EditarLayoutModal(Modal):
-    """Modal para personalizar TEXTOS do embed da fila usando placeholders.
-    Placeholders disponíveis: {titulo} {categoria} {categoria_emoji} {modo}
-    {modo_emoji} {valor} {jogadores} {jogadores_count} {jogadores_total} {vagas}"""
+    """Modal: Editar Template — descrição, thumbnail e cor."""
     def __init__(self, ch: str, config: dict, painel_msg=None):
-        super().__init__(title=f"Editar Texto — {display(ch)}"[:45])
+        super().__init__(title=f"Editar Template: {display(ch)}"[:45])
         self.ch, self.painel_msg = ch, painel_msg
         cfg = config[ch]
 
-        self.titulo = TextInput(
-            label="Título (placeholders OK)",
-            default=cfg.get("titulo", display(ch)),
-            max_length=200, required=True,
-            placeholder="Fila {modo} • {valor}",
+        exemplo = (
+            "### Filas Mobile\n"
+            "🎮 **Modo:** [[modo_jogo]]\n"
+            "💰 **Valor:** [[valor_partida]]\n"
+            "👥 **Jogadores:**\n[[jogadores_fila]]"
         )
+
         self.descricao = TextInput(
-            label="Descrição/Layout (vazio = padrão)",
+            label="ADICIONE A DESCRIÇÃO DO EMBED",
             default=cfg.get("descricao_template", ""),
-            required=False, max_length=2000,
+            required=True, max_length=2000,
             style=discord.TextStyle.paragraph,
-            placeholder="Ex: 💰 {valor} • 👥 {jogadores_count}/{jogadores_total}\n{jogadores}",
+            placeholder=exemplo,
         )
-        self.txt_vazio = TextInput(
-            label="Texto quando NÃO tem jogadores",
-            default=cfg.get("texto_jogadores_vazio", ""),
-            required=False, max_length=300,
-            placeholder="Ex: Fila vazia. Faltam {vagas} jogadores.",
+        self.thumb = TextInput(
+            label="ADICIONE A URL DO AVATAR (Thumbnail)",
+            default=cfg.get("thumbnail", ""),
+            required=False, max_length=500,
+            placeholder="https://...",
         )
-        self.txt_cheio = TextInput(
-            label="Texto quando fila ENCHE",
-            default=cfg.get("texto_fila_completa", ""),
-            required=False, max_length=300,
-            placeholder="Ex: 🔥 Fila {modo} cheia! Valor: {valor}",
+        self.cor = TextInput(
+            label="ADICIONE A COR (HEX: #FFFFFF)",
+            default=cfg.get("cor", "") or "#FFDF00",
+            required=True, max_length=9,
+            placeholder="#FFDF00",
         )
-        self.rodape = TextInput(
-            label="Rodapé (footer)",
-            default=cfg.get("rodape", ""),
-            required=False, max_length=200,
-            placeholder="{categoria} • {modo} • {valor}",
-        )
-        for it in (self.titulo, self.descricao, self.txt_vazio, self.txt_cheio, self.rodape):
+        for it in (self.descricao, self.thumb, self.cor):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
         config = carregar_config()
         cfg = config[self.ch]
-        cfg["titulo"]                = self.titulo.value.strip()
-        cfg["descricao_template"]    = self.descricao.value.strip()
-        cfg["texto_jogadores_vazio"] = self.txt_vazio.value.strip()
-        cfg["texto_fila_completa"]   = self.txt_cheio.value.strip()
-        cfg["rodape"]                = self.rodape.value.strip()
+        cfg["descricao_template"] = self.descricao.value.strip()
+        cfg["thumbnail"]          = self.thumb.value.strip()
+        cfg["cor"]                = self.cor.value.strip()
         salvar_config(config)
         cat, _ = split_chave(self.ch)
         await interaction.response.edit_message(
             embed=build_embed_config_modo(self.ch, config),
             view=ModoConfigView(self.ch, cat, self.painel_msg),
         )
-        # Atualiza embeds publicados desta fila
         await _republicar_embeds_modo(self.ch, config)
         await interaction.followup.send(
-            f"✅ Texto/layout do embed atualizado!\n{PLACEHOLDERS_AJUDA}",
+            "✅ **Template atualizado!**\n"
+            "Use o botão **❓ Placeholders** para ver os parâmetros disponíveis.",
             ephemeral=True,
         )
 
@@ -972,52 +952,14 @@ class _BtnVerPlaceholders(Button):
         self.ch = ch
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
-        cat, m = split_chave(self.ch)
-        cfg = config[self.ch]
-        # Pega o primeiro preço pra mostrar exemplo real
-        preco_exemplo = cfg["precos"][0] if cfg.get("precos") else {"valor": "R$ 1,00", "jogadores": []}
-        ctx = _ctx_fila(self.ch, preco_exemplo, config)
-
-        embed = discord.Embed(
-            title="❓ Placeholders disponíveis",
-            description=(
-                "Use estes códigos dentro dos campos do **📝 Texto/Layout**. "
-                "Eles são substituídos automaticamente quando o embed da fila é mostrado."
-            ),
-            color=cor_global(config),
+        linhas = [f"- `[[{chave}]]`: {desc}" for chave, desc in PARAMETROS_INFO]
+        texto = (
+            "## **PARÂMETROS OBRIGATÓRIOS:**\n"
+            + "\n".join(linhas)
+            + "\n\n*Todos os parâmetros, obrigatoriamente, tem que estar dentro "
+              "das chaves \" `[[]]` \", igual os exemplos a cima.*"
         )
-
-        explicacoes = [
-            ("`{titulo}`",            "Título configurado da fila",                  ctx["titulo"]),
-            ("`{categoria}`",         "Categoria do modo (ex: Free Fire)",            ctx["categoria"]),
-            ("`{categoria_emoji}`",   "Emoji da categoria",                           ctx["categoria_emoji"] or "—"),
-            ("`{modo}`",              "Modo de jogo (ex: 1x1, 2x2…)",                ctx["modo"]),
-            ("`{modo_emoji}`",        "Emoji do modo",                                ctx["modo_emoji"] or "—"),
-            ("`{valor}`",             "Valor da aposta",                              ctx["valor"]),
-            ("`{jogadores}`",         "Lista numerada com mentions dos jogadores",    "1. @Fulano\n2. @Beltrano"),
-            ("`{jogadores_count}`",   "Quantos jogadores entraram na fila",           str(ctx["jogadores_count"])),
-            ("`{jogadores_total}`",   "Total de vagas necessárias",                   str(ctx["jogadores_total"])),
-            ("`{vagas}`",             "Quantas vagas ainda faltam",                   str(ctx["vagas"])),
-        ]
-
-        bloco = "\n".join(f"{cod} — {desc}\n  ↳ valor atual: `{val}`" for cod, desc, val in explicacoes)
-        embed.add_field(name="Lista completa", value=bloco, inline=False)
-
-        embed.add_field(
-            name="💡 Exemplo de Descrição/Layout",
-            value=(
-                "```\n"
-                "🎮 Modo: {modo_emoji} {modo}\n"
-                "💰 Valor: {valor}\n"
-                "👥 Jogadores ({jogadores_count}/{jogadores_total}):\n"
-                "{jogadores}\n"
-                "```"
-            ),
-            inline=False,
-        )
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(texto, ephemeral=True)
 
 
 class _BtnGerenciarPrecos(Button):
