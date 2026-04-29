@@ -327,7 +327,7 @@
     "titulo": "Emulador 1v1",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1495091000031445315,
+    "canal_id": 1490011049213169940,
     "botao1": {
       "emoji": "🎮",
       "label": "Opção 1"
@@ -343,8 +343,8 @@
         "jogadores": []
       }
     ],
-    "descricao_template": "",
-    "cor": ""
+    "descricao_template": "**Filas Emulador [[modo_jogo]]**\n**Valor**: \n[[valor_partida]]\n**Jogadores**:\n[[jogadores_fila]]",
+    "cor": "#FFDF00"
   },
   "Emulador_2v2": {
     "titulo": "Emulador 2v2",
