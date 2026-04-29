@@ -249,6 +249,35 @@ def carregar_config() -> dict:
     for k, v in PAINEL_ADMIN_BOTOES_DEFAULT.items():
         pab.setdefault(k, dict(v))
 
+    # Sistema de Tickets
+    g.setdefault("tickets", {
+        "embed": {
+            "titulo":    "🎫 Central de Tickets",
+            "descricao": "Precisa de ajuda? Clique num dos botões abaixo pra abrir um ticket.",
+            "thumbnail": "",
+            "banner":    "",
+            "cor":       "",   # vazio = usa cor global
+        },
+        "botoes": [],   # [{id, emoji, label, estilo, canal_id, mensagem_inicial, cargo_atendimento_id}]
+    })
+    _tk = g["tickets"]
+    _tk.setdefault("embed", {})
+    _tke = _tk["embed"]
+    _tke.setdefault("titulo",    "🎫 Central de Tickets")
+    _tke.setdefault("descricao", "Precisa de ajuda? Clique num dos botões abaixo pra abrir um ticket.")
+    _tke.setdefault("thumbnail", "")
+    _tke.setdefault("banner",    "")
+    _tke.setdefault("cor",       "")
+    _tk.setdefault("botoes", [])
+    for b in _tk["botoes"]:
+        b.setdefault("id", gerar_id())
+        b.setdefault("emoji", "🎫")
+        b.setdefault("label", "Abrir Ticket")
+        b.setdefault("estilo", "primary")
+        b.setdefault("canal_id", None)
+        b.setdefault("mensagem_inicial", "Olá {user}! Descreva sua questão e aguarde um atendente.")
+        b.setdefault("cargo_atendimento_id", None)
+
     # Aparência por servidor: {guild_id_str: {"bio": "..."}}
     data.setdefault("aparencias", {})
 
@@ -2642,6 +2671,9 @@ class MyBot(discord.Client):
         self.add_view(PainelMediadorView())
         # Painel streamer persistente
         self.add_view(PainelStreamerView())
+        # Painel de tickets persistente (botões de abrir + botão de fechar)
+        self.add_view(PainelTicketsPublicoView(config))
+        self.add_view(_FecharTicketView())
         # IMPORTANTE: não sincronizar globalmente para evitar comandos duplicados
         # (a sincronização será feita por servidor em on_ready / on_guild_join)
 
@@ -2822,6 +2854,483 @@ async def _check_pode_admin(interaction: discord.Interaction) -> bool:
     return False
 
 
+# ──────────────────────────────────────────────
+# SISTEMA DE TICKETS
+# ──────────────────────────────────────────────
+
+ESTILOS_BTN = {
+    "primary":   discord.ButtonStyle.primary,
+    "secondary": discord.ButtonStyle.secondary,
+    "success":   discord.ButtonStyle.success,
+    "danger":    discord.ButtonStyle.danger,
+}
+ESTILOS_PT = {
+    "primary":   "azul",
+    "secondary": "cinza",
+    "success":   "verde",
+    "danger":    "vermelho",
+}
+ESTILOS_PT_REV = {v: k for k, v in ESTILOS_PT.items()}
+
+
+def _parse_estilo(txt: str) -> str:
+    t = (txt or "").strip().lower()
+    if t in ESTILOS_BTN:
+        return t
+    if t in ESTILOS_PT_REV:
+        return ESTILOS_PT_REV[t]
+    return "primary"
+
+
+def cor_tickets(config: dict) -> int:
+    cor = config["global"]["tickets"]["embed"].get("cor", "")
+    if cor:
+        return parse_cor(cor)
+    return cor_global(config)
+
+
+def build_embed_tickets_publico(config: dict) -> discord.Embed:
+    e = config["global"]["tickets"]["embed"]
+    embed = discord.Embed(
+        title=e.get("titulo") or "🎫 Central de Tickets",
+        description=e.get("descricao") or "Clique num botão abaixo pra abrir um ticket.",
+        color=cor_tickets(config),
+    )
+    if e.get("thumbnail"):
+        embed.set_thumbnail(url=e["thumbnail"])
+    if e.get("banner"):
+        embed.set_image(url=e["banner"])
+    return embed
+
+
+def build_embed_tickets_admin(config: dict) -> discord.Embed:
+    tk = config["global"]["tickets"]
+    embed = discord.Embed(
+        title="🎫 Painel de Tickets — Configuração",
+        description=(
+            f"**Título do painel:** {tk['embed'].get('titulo') or '*(vazio)*'}\n"
+            f"**Botões cadastrados:** `{len(tk['botoes'])}` / 25\n\n"
+            "Use os botões abaixo pra editar o painel, adicionar/remover botões, "
+            "e publicar a mensagem num canal."
+        ),
+        color=cor_tickets(config),
+    )
+    if tk["botoes"]:
+        linhas = []
+        for i, b in enumerate(tk["botoes"], 1):
+            canal = f"<#{b['canal_id']}>" if b.get("canal_id") else "*(sem canal)*"
+            linhas.append(f"`{i}.` {b.get('emoji','')} **{b.get('label') or '—'}** → {canal}")
+        embed.add_field(name="Botões", value="\n".join(linhas), inline=False)
+    return embed
+
+
+# ─── Modais de edição ────────────────────────────
+
+class EditarEmbedTicketsModal(Modal, title="Editar Embed do Painel"):
+    def __init__(self, painel_msg):
+        super().__init__()
+        config = carregar_config()
+        e = config["global"]["tickets"]["embed"]
+        self.painel_msg = painel_msg
+        self.titulo    = TextInput(label="Título",    default=e.get("titulo", ""),    max_length=200, required=False)
+        self.descricao = TextInput(label="Descrição", default=e.get("descricao", ""), style=discord.TextStyle.paragraph, max_length=2000, required=False)
+        self.thumbnail = TextInput(label="Thumbnail (URL)", default=e.get("thumbnail", ""), max_length=400, required=False)
+        self.banner    = TextInput(label="Banner (URL)",    default=e.get("banner", ""),    max_length=400, required=False)
+        self.cor       = TextInput(label="Cor (hex, ex: #00BFFF) — vazio usa global",
+                                   default=e.get("cor", ""), max_length=10, required=False)
+        for it in (self.titulo, self.descricao, self.thumbnail, self.banner, self.cor):
+            self.add_item(it)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        e = config["global"]["tickets"]["embed"]
+        e["titulo"]    = self.titulo.value.strip()
+        e["descricao"] = self.descricao.value
+        e["thumbnail"] = self.thumbnail.value.strip()
+        e["banner"]    = self.banner.value.strip()
+        e["cor"]       = self.cor.value.strip()
+        salvar_config(config)
+        _registrar_view_tickets()
+        await interaction.response.edit_message(embed=build_embed_tickets_admin(config), view=PainelTicketsAdminView(self.painel_msg))
+
+
+class AdicionarBotaoTicketModal(Modal, title="Adicionar Botão de Ticket"):
+    def __init__(self, painel_msg):
+        super().__init__()
+        self.painel_msg = painel_msg
+        self.emoji_label = TextInput(
+            label="Emoji + Texto do botão",
+            placeholder="ex: 🎫 Suporte  ou  <:nome:id> Compras",
+            max_length=80, required=True,
+        )
+        self.estilo = TextInput(
+            label="Cor do botão",
+            placeholder="azul / cinza / verde / vermelho",
+            default="azul", max_length=20, required=False,
+        )
+        self.mensagem = TextInput(
+            label="Mensagem inicial (use {user} pra mencionar)",
+            style=discord.TextStyle.paragraph,
+            default="Olá {user}! Descreva sua questão e aguarde um atendente.",
+            max_length=1500, required=True,
+        )
+        for it in (self.emoji_label, self.estilo, self.mensagem):
+            self.add_item(it)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        emoji, label = parse_emoji_label(self.emoji_label.value)
+        novo = {
+            "id": gerar_id(),
+            "emoji": emoji,
+            "label": label,
+            "estilo": _parse_estilo(self.estilo.value),
+            "canal_id": None,
+            "mensagem_inicial": self.mensagem.value,
+            "cargo_atendimento_id": None,
+        }
+        await interaction.response.send_message(
+            f"✅ Botão **{emoji} {label}** criado! Agora escolha em **qual canal** ele abrirá os tickets:",
+            view=_EscolherCanalTicketView(novo, self.painel_msg, modo="adicionar"),
+            ephemeral=True,
+        )
+
+
+class EditarBotaoTicketModal(Modal, title="Editar Botão de Ticket"):
+    def __init__(self, btn: dict, painel_msg):
+        super().__init__()
+        self.btn_id = btn["id"]
+        self.painel_msg = painel_msg
+        emj_lbl = f"{btn.get('emoji','')} {btn.get('label','')}".strip()
+        self.emoji_label = TextInput(
+            label="Emoji + Texto do botão",
+            default=emj_lbl, max_length=80, required=True,
+        )
+        self.estilo = TextInput(
+            label="Cor do botão",
+            placeholder="azul / cinza / verde / vermelho",
+            default=ESTILOS_PT.get(btn.get("estilo", "primary"), "azul"),
+            max_length=20, required=False,
+        )
+        self.mensagem = TextInput(
+            label="Mensagem inicial (use {user} pra mencionar)",
+            style=discord.TextStyle.paragraph,
+            default=btn.get("mensagem_inicial", ""),
+            max_length=1500, required=True,
+        )
+        for it in (self.emoji_label, self.estilo, self.mensagem):
+            self.add_item(it)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        for b in config["global"]["tickets"]["botoes"]:
+            if b["id"] == self.btn_id:
+                e, l = parse_emoji_label(self.emoji_label.value)
+                b["emoji"] = e
+                b["label"] = l
+                b["estilo"] = _parse_estilo(self.estilo.value)
+                b["mensagem_inicial"] = self.mensagem.value
+                break
+        salvar_config(config)
+        _registrar_view_tickets()
+        await interaction.response.edit_message(embed=build_embed_tickets_admin(config), view=PainelTicketsAdminView(self.painel_msg))
+
+
+# ─── Selects auxiliares ──────────────────────────
+
+class _EscolherCanalTicketView(View):
+    """Após criar/editar botão de ticket, pergunta o canal de destino."""
+    def __init__(self, btn: dict, painel_msg, modo: str = "adicionar"):
+        super().__init__(timeout=300)
+        self.btn = btn
+        self.painel_msg = painel_msg
+        self.modo = modo  # "adicionar" ou "editar_canal"
+        self.add_item(self._CanalSelect(self))
+
+    class _CanalSelect(ChannelSelect):
+        def __init__(self, parent):
+            super().__init__(channel_types=[discord.ChannelType.text], placeholder="Escolha o canal onde os tickets serão abertos…", min_values=1, max_values=1)
+            self.parent = parent
+
+        async def callback(self, interaction: discord.Interaction):
+            canal = self.values[0]
+            config = carregar_config()
+            if self.parent.modo == "adicionar":
+                self.parent.btn["canal_id"] = canal.id
+                config["global"]["tickets"]["botoes"].append(self.parent.btn)
+                salvar_config(config)
+                _registrar_view_tickets()
+                await interaction.response.edit_message(
+                    content=f"✅ Botão adicionado e vinculado a {canal.mention}!",
+                    view=None,
+                )
+            else:  # editar_canal
+                for b in config["global"]["tickets"]["botoes"]:
+                    if b["id"] == self.parent.btn["id"]:
+                        b["canal_id"] = canal.id
+                        break
+                salvar_config(config)
+                _registrar_view_tickets()
+                await interaction.response.edit_message(
+                    content=f"✅ Canal alterado para {canal.mention}!",
+                    view=None,
+                )
+
+
+class _SelectBotaoTicket(Select):
+    def __init__(self, painel_msg, acao: str):
+        config = carregar_config()
+        botoes = config["global"]["tickets"]["botoes"]
+        opts = []
+        for b in botoes[:25]:
+            label = (b.get("label") or "—")[:80]
+            desc = f"{ESTILOS_PT.get(b.get('estilo','primary'),'azul')} • " + (f"<#{b['canal_id']}>" if b.get("canal_id") else "sem canal")
+            try:
+                opts.append(discord.SelectOption(label=label, description=desc[:90], value=b["id"], emoji=to_discord_emoji(b.get("emoji","")) if b.get("emoji") else None))
+            except Exception:
+                opts.append(discord.SelectOption(label=label, description=desc[:90], value=b["id"]))
+        if not opts:
+            opts = [discord.SelectOption(label="(nenhum botão)", value="__none__")]
+        placeholder = {
+            "editar":      "Selecione um botão pra editar (texto/cor/mensagem)…",
+            "canal":       "Selecione um botão pra trocar o canal de destino…",
+            "remover":     "Selecione um botão pra remover…",
+        }[acao]
+        super().__init__(placeholder=placeholder, min_values=1, max_values=1, options=opts)
+        self.painel_msg = painel_msg
+        self.acao = acao
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.values[0] == "__none__":
+            await interaction.response.send_message("❌ Nenhum botão cadastrado ainda.", ephemeral=True); return
+        config = carregar_config()
+        btn = next((b for b in config["global"]["tickets"]["botoes"] if b["id"] == self.values[0]), None)
+        if not btn:
+            await interaction.response.send_message("❌ Botão não encontrado.", ephemeral=True); return
+
+        if self.acao == "editar":
+            await interaction.response.send_modal(EditarBotaoTicketModal(btn, self.painel_msg))
+        elif self.acao == "canal":
+            await interaction.response.send_message(
+                f"Escolha o novo canal para **{btn.get('emoji','')} {btn.get('label','')}**:",
+                view=_EscolherCanalTicketView(btn, self.painel_msg, modo="editar_canal"),
+                ephemeral=True,
+            )
+        elif self.acao == "remover":
+            config["global"]["tickets"]["botoes"] = [b for b in config["global"]["tickets"]["botoes"] if b["id"] != self.values[0]]
+            salvar_config(config)
+            _registrar_view_tickets()
+            await interaction.response.edit_message(
+                embed=build_embed_tickets_admin(config),
+                view=PainelTicketsAdminView(self.painel_msg),
+            )
+
+
+# ─── View principal de admin ─────────────────────
+
+class PainelTicketsAdminView(View):
+    def __init__(self, painel_msg=None):
+        super().__init__(timeout=600)
+        self.painel_msg = painel_msg
+        self.add_item(_BtnTkEditarEmbed(painel_msg))
+        self.add_item(_BtnTkAdicionarBotao(painel_msg))
+        self.add_item(_BtnTkEditarBotao(painel_msg))
+        self.add_item(_BtnTkTrocarCanal(painel_msg))
+        self.add_item(_BtnTkRemoverBotao(painel_msg))
+        self.add_item(_BtnTkVisualizar())
+        self.add_item(_BtnTkPublicar(painel_msg))
+
+
+class _BtnTkEditarEmbed(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="Editar Embed", emoji="✏️", style=discord.ButtonStyle.primary, row=0)
+        self.painel_msg = painel_msg
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(EditarEmbedTicketsModal(self.painel_msg))
+
+
+class _BtnTkAdicionarBotao(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="Adicionar Botão", emoji="➕", style=discord.ButtonStyle.success, row=0)
+        self.painel_msg = painel_msg
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if len(config["global"]["tickets"]["botoes"]) >= 25:
+            await interaction.response.send_message("❌ Limite de 25 botões atingido.", ephemeral=True); return
+        await interaction.response.send_modal(AdicionarBotaoTicketModal(self.painel_msg))
+
+
+class _BtnTkEditarBotao(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="Editar Botão", emoji="🔧", style=discord.ButtonStyle.secondary, row=0)
+        self.painel_msg = painel_msg
+    async def callback(self, interaction: discord.Interaction):
+        view = View(timeout=120)
+        view.add_item(_SelectBotaoTicket(self.painel_msg, "editar"))
+        await interaction.response.send_message("Escolha qual botão editar:", view=view, ephemeral=True)
+
+
+class _BtnTkTrocarCanal(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="Trocar Canal", emoji="📍", style=discord.ButtonStyle.secondary, row=1)
+        self.painel_msg = painel_msg
+    async def callback(self, interaction: discord.Interaction):
+        view = View(timeout=120)
+        view.add_item(_SelectBotaoTicket(self.painel_msg, "canal"))
+        await interaction.response.send_message("Escolha qual botão terá o canal trocado:", view=view, ephemeral=True)
+
+
+class _BtnTkRemoverBotao(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="Remover Botão", emoji="🗑️", style=discord.ButtonStyle.danger, row=1)
+        self.painel_msg = painel_msg
+    async def callback(self, interaction: discord.Interaction):
+        view = View(timeout=120)
+        view.add_item(_SelectBotaoTicket(self.painel_msg, "remover"))
+        await interaction.response.send_message("Escolha qual botão remover:", view=view, ephemeral=True)
+
+
+class _BtnTkVisualizar(Button):
+    def __init__(self):
+        super().__init__(label="Visualizar", emoji="👁️", style=discord.ButtonStyle.secondary, row=1)
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.send_message(
+            content="**Pré-visualização do painel:**",
+            embed=build_embed_tickets_publico(config),
+            view=PainelTicketsPublicoView(config),
+            ephemeral=True,
+        )
+
+
+class _BtnTkPublicar(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="Publicar Painel", emoji="🚀", style=discord.ButtonStyle.success, row=2)
+        self.painel_msg = painel_msg
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not config["global"]["tickets"]["botoes"]:
+            await interaction.response.send_message("❌ Adicione pelo menos um botão antes de publicar.", ephemeral=True); return
+        view = View(timeout=120)
+        view.add_item(_PublicarTicketsCanalSelect())
+        await interaction.response.send_message("Escolha o canal onde o painel de tickets será publicado:", view=view, ephemeral=True)
+
+
+class _PublicarTicketsCanalSelect(ChannelSelect):
+    def __init__(self):
+        super().__init__(channel_types=[discord.ChannelType.text], placeholder="Canal onde publicar o painel…", min_values=1, max_values=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        canal = self.values[0]
+        canal_real = interaction.guild.get_channel(canal.id)
+        if not isinstance(canal_real, discord.TextChannel):
+            await interaction.response.send_message("❌ Canal inválido.", ephemeral=True); return
+        try:
+            await canal_real.send(embed=build_embed_tickets_publico(config), view=PainelTicketsPublicoView(config))
+            await interaction.response.edit_message(content=f"✅ Painel publicado em {canal_real.mention}!", view=None)
+        except discord.Forbidden:
+            await interaction.response.send_message("❌ Sem permissão pra enviar mensagem nesse canal.", ephemeral=True)
+
+
+# ─── View pública (que aparece pros usuários) ────
+
+class PainelTicketsPublicoView(View):
+    def __init__(self, config: dict | None = None):
+        super().__init__(timeout=None)
+        if config is None:
+            config = carregar_config()
+        for i, b in enumerate(config["global"]["tickets"]["botoes"][:25]):
+            self.add_item(_BtnAbrirTicket(b, row=i // 5))
+
+
+class _BtnAbrirTicket(Button):
+    def __init__(self, btn_data: dict, row: int = 0):
+        emj = btn_data.get("emoji") or None
+        super().__init__(
+            label=(btn_data.get("label") or None),
+            emoji=to_discord_emoji(emj) if emj else None,
+            style=ESTILOS_BTN.get(btn_data.get("estilo", "primary"), discord.ButtonStyle.primary),
+            custom_id=f"ticket_btn_{btn_data['id']}",
+            row=row,
+        )
+        self.btn_id = btn_data["id"]
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        btn = next((b for b in config["global"]["tickets"]["botoes"] if b["id"] == self.btn_id), None)
+        if not btn:
+            await interaction.response.send_message("❌ Esse botão não está mais disponível.", ephemeral=True); return
+        canal_id = btn.get("canal_id")
+        canal = interaction.guild.get_channel(canal_id) if canal_id else None
+        if not isinstance(canal, discord.TextChannel):
+            await interaction.response.send_message("❌ Canal de destino não configurado.", ephemeral=True); return
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        nome_user = interaction.user.name.lower().replace(" ", "-")[:40]
+        nome_topico = f"ticket-{nome_user}"
+
+        try:
+            topico = await canal.create_thread(
+                name=nome_topico,
+                type=discord.ChannelType.private_thread,
+                invitable=False,
+                auto_archive_duration=1440,
+                reason=f"Ticket aberto por {interaction.user} via botão {btn.get('label','')}",
+            )
+        except discord.Forbidden:
+            await interaction.followup.send("❌ Não tenho permissão pra criar tópicos privados nesse canal.", ephemeral=True); return
+        except discord.HTTPException:
+            # Fallback: tópico público
+            try:
+                topico = await canal.create_thread(
+                    name=nome_topico,
+                    type=discord.ChannelType.public_thread,
+                    auto_archive_duration=1440,
+                )
+            except Exception as e:
+                await interaction.followup.send(f"❌ Erro ao abrir o ticket: `{e}`", ephemeral=True); return
+
+        try:
+            await topico.add_user(interaction.user)
+        except Exception:
+            pass
+
+        msg_inicial = (btn.get("mensagem_inicial") or "Olá {user}!").format(user=interaction.user.mention)
+        try:
+            await topico.send(content=msg_inicial, view=_FecharTicketView())
+        except Exception:
+            pass
+
+        await interaction.followup.send(f"✅ Seu ticket foi aberto: {topico.mention}", ephemeral=True)
+
+
+def _registrar_view_tickets():
+    """Re-registra a view pública de tickets pra que novos botões funcionem em mensagens já publicadas."""
+    try:
+        bot.add_view(PainelTicketsPublicoView(carregar_config()))
+    except Exception:
+        pass
+
+
+class _FecharTicketView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Fechar Ticket", emoji="🔒", style=discord.ButtonStyle.danger, custom_id="ticket_fechar")
+    async def fechar(self, interaction: discord.Interaction, button: Button):
+        canal = interaction.channel
+        if not isinstance(canal, discord.Thread):
+            await interaction.response.send_message("❌ Esse botão só funciona dentro de um ticket.", ephemeral=True); return
+        await interaction.response.send_message(f"🔒 Ticket fechado por {interaction.user.mention}. Arquivando em 5s…")
+        await asyncio.sleep(5)
+        try:
+            await canal.edit(archived=True, locked=True)
+        except Exception:
+            pass
+
+
 class _LimparConfirmView(View):
     def __init__(self, autor_id: int, canal: discord.TextChannel):
         super().__init__(timeout=60)
@@ -2912,6 +3421,20 @@ async def limpar(interaction: discord.Interaction):
         view=_LimparConfirmView(interaction.user.id, canal),
         ephemeral=True,
     )
+
+
+@bot.tree.command(name="painel_tickets", description="Abre o painel de configuração do sistema de tickets")
+async def painel_tickets(interaction: discord.Interaction):
+    if not await _check_pode_admin(interaction):
+        return
+    config = carregar_config()
+    view = PainelTicketsAdminView()
+    await interaction.response.send_message(embed=build_embed_tickets_admin(config), view=view, ephemeral=True)
+    msg = await interaction.original_response()
+    view.painel_msg = msg
+    for child in view.children:
+        if hasattr(child, "painel_msg"):
+            child.painel_msg = msg
 
 
 @bot.tree.command(name="painel", description="Abre o painel de configuração das filas")
