@@ -161,6 +161,60 @@
         "emoji": "🔁",
         "label": "Abrir/Fechar"
       }
+    },
+    "painel_admin_botoes": {
+      "config_geral": {
+        "emoji": "⚙️",
+        "label": "Config Geral"
+      },
+      "embed_global": {
+        "emoji": "🎨",
+        "label": "Embed Global"
+      },
+      "filas_on": {
+        "emoji": "🟢",
+        "label": "Filas ON"
+      },
+      "filas_off": {
+        "emoji": "🛑",
+        "label": "Filas OFF"
+      },
+      "publicar": {
+        "emoji": "🚀",
+        "label": "Publicar Filas"
+      },
+      "personalizar": {
+        "emoji": "🎛️",
+        "label": "Personalizar Painel"
+      },
+      "editar_embed": {
+        "emoji": "✏️",
+        "label": "Título/Banner"
+      },
+      "editar_botoes": {
+        "emoji": "🎮",
+        "label": "Editar Botões"
+      },
+      "texto_layout": {
+        "emoji": "📝",
+        "label": "Texto/Layout"
+      },
+      "placeholders": {
+        "emoji": "<:geloff:1490281341474967603>",
+        "label": "Placeholders"
+      },
+      "visualizar": {
+        "emoji": "👁️",
+        "label": "Visualizar"
+      },
+      "precos": {
+        "emoji": "💰",
+        "label": "Preços"
+      },
+      "voltar": {
+        "emoji": "◀️",
+        "label": "Voltar"
+      }
     }
   },
   "Mobile_1v1": {

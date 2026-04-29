@@ -1287,7 +1287,7 @@ class _BtnFilasToggle(Button):
         await _atualizar_status_filas(interaction.guild, config)
 
         await interaction.followup.send(
-            f"🛑 **Filas DESATIVADAS**" if atual else "🟢 **Filas ATIVADAS**",
+            "# 🛑 Filas DESATIVADAS" if atual else "# 🟢 Filas ATIVADAS",
             ephemeral=True,
         )
 
@@ -2869,7 +2869,7 @@ async def filas_off(interaction: discord.Interaction):
     config["global"]["filas_ativas"] = False
     salvar_config(config)
     await _atualizar_status_filas(interaction.guild, config)
-    await interaction.response.send_message("🛑 **Filas DESATIVADAS** — ninguém pode entrar nas filas até serem reativadas.", ephemeral=True)
+    await interaction.response.send_message("# 🛑 Filas DESATIVADAS\n-# Ninguém pode entrar nas filas até serem reativadas.", ephemeral=True)
 
 
 @bot.tree.command(name="filas_on", description="Reativa as filas")
@@ -2880,7 +2880,7 @@ async def filas_on(interaction: discord.Interaction):
     config["global"]["filas_ativas"] = True
     salvar_config(config)
     await _atualizar_status_filas(interaction.guild, config)
-    await interaction.response.send_message("🟢 **Filas ATIVADAS** — os jogadores já podem entrar.", ephemeral=True)
+    await interaction.response.send_message("# 🟢 Filas ATIVADAS\n-# Os jogadores já podem entrar.", ephemeral=True)
 
 
 @bot.tree.command(name="painel_streamer", description="Publica o painel da fila do streamer no canal atual")
