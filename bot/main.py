@@ -95,6 +95,27 @@ def to_discord_emoji(emoji_str: str):
     return emoji_str
 
 
+def get_admin_btn(key: str) -> dict:
+    """Lê a configuração do botão do painel admin (com fallback ao default)."""
+    try:
+        cfg = carregar_config()
+        b = cfg.get("global", {}).get("painel_admin_botoes", {}).get(key, {})
+    except Exception:
+        b = {}
+    base = PAINEL_ADMIN_BOTOES_DEFAULT.get(key, {"emoji": "", "label": key})
+    return {"emoji": b.get("emoji") or base["emoji"], "label": b.get("label", base["label"])}
+
+
+def aplicar_btn_admin(btn, key: str):
+    """Aplica emoji + label personalizados a um Button já criado."""
+    info = get_admin_btn(key)
+    btn.label = info["label"] or None
+    if info["emoji"]:
+        btn.emoji = to_discord_emoji(info["emoji"])
+    else:
+        btn.emoji = None
+
+
 def gerar_id() -> str:
     return str(uuid.uuid4()).replace("-", "")[:10]
 
@@ -116,6 +137,25 @@ def parse_cor(valor: str) -> int:
 # ──────────────────────────────────────────────
 # Config
 # ──────────────────────────────────────────────
+
+PAINEL_ADMIN_BOTOES_DEFAULT = {
+    # Painel Principal
+    "config_geral":    {"emoji": "⚙️", "label": "Config Geral"},
+    "embed_global":    {"emoji": "🎨", "label": "Embed Global"},
+    "filas_on":        {"emoji": "🟢", "label": "Filas ON"},
+    "filas_off":       {"emoji": "🛑", "label": "Filas OFF"},
+    "publicar":        {"emoji": "🚀", "label": "Publicar Filas"},
+    "personalizar":    {"emoji": "🎛️", "label": "Personalizar Painel"},
+    # Painel do Modo
+    "editar_embed":    {"emoji": "✏️", "label": "Título/Banner"},
+    "editar_botoes":   {"emoji": "🎮", "label": "Editar Botões"},
+    "texto_layout":    {"emoji": "📝", "label": "Texto/Layout"},
+    "placeholders":    {"emoji": "❓", "label": "Placeholders"},
+    "visualizar":      {"emoji": "👁️", "label": "Visualizar"},
+    "precos":          {"emoji": "💰", "label": "Preços"},
+    "voltar":          {"emoji": "◀️", "label": "Voltar"},
+}
+
 
 def _modo_padrao(ch: str) -> dict:
     _, m = split_chave(ch)
@@ -202,6 +242,12 @@ def carregar_config() -> dict:
     _psb = g["painel_streamer_botoes"]
     _psb.setdefault("jogar_contra", {"emoji": "🚪", "label": "Jogar Contra"})
     _psb.setdefault("gear",         {"emoji": "⚙️", "label": ""})
+
+    # Botões personalizáveis dos painéis de administração
+    g.setdefault("painel_admin_botoes", {})
+    pab = g["painel_admin_botoes"]
+    for k, v in PAINEL_ADMIN_BOTOES_DEFAULT.items():
+        pab.setdefault(k, dict(v))
 
     # Aparência por servidor: {guild_id_str: {"bio": "..."}}
     data.setdefault("aparencias", {})
@@ -912,7 +958,8 @@ class _CanalSelect(ChannelSelect):
 
 class _BtnEditarEmbed(Button):
     def __init__(self, ch, painel_msg):
-        super().__init__(label="✏️  Título/Banner", style=discord.ButtonStyle.primary, row=1)
+        super().__init__(style=discord.ButtonStyle.primary, row=1)
+        aplicar_btn_admin(self, "editar_embed")
         self.ch, self.painel_msg = ch, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -922,7 +969,8 @@ class _BtnEditarEmbed(Button):
 
 class _BtnEditarBotoes(Button):
     def __init__(self, ch, painel_msg):
-        super().__init__(label="🎮  Editar Botões", style=discord.ButtonStyle.secondary, row=1)
+        super().__init__(style=discord.ButtonStyle.secondary, row=1)
+        aplicar_btn_admin(self, "editar_botoes")
         self.ch, self.painel_msg = ch, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -932,7 +980,8 @@ class _BtnEditarBotoes(Button):
 
 class _BtnEditarLayout(Button):
     def __init__(self, ch, painel_msg):
-        super().__init__(label="Texto/Layout", style=discord.ButtonStyle.secondary, row=2)
+        super().__init__(style=discord.ButtonStyle.secondary, row=2)
+        aplicar_btn_admin(self, "texto_layout")
         self.ch, self.painel_msg = ch, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -942,7 +991,8 @@ class _BtnEditarLayout(Button):
 
 class _BtnVerPlaceholders(Button):
     def __init__(self, ch):
-        super().__init__(label="Placeholders", style=discord.ButtonStyle.secondary, row=2)
+        super().__init__(style=discord.ButtonStyle.secondary, row=2)
+        aplicar_btn_admin(self, "placeholders")
         self.ch = ch
 
     async def callback(self, interaction: discord.Interaction):
@@ -958,7 +1008,8 @@ class _BtnVerPlaceholders(Button):
 
 class _BtnVisualizar(Button):
     def __init__(self, ch):
-        super().__init__(label="Visualizar", style=discord.ButtonStyle.success, row=2)
+        super().__init__(style=discord.ButtonStyle.success, row=2)
+        aplicar_btn_admin(self, "visualizar")
         self.ch = ch
 
     async def callback(self, interaction: discord.Interaction):
@@ -981,7 +1032,8 @@ class _BtnVisualizar(Button):
 
 class _BtnGerenciarPrecos(Button):
     def __init__(self, ch, painel_msg):
-        super().__init__(label="💰  Preços", style=discord.ButtonStyle.secondary, row=1)
+        super().__init__(style=discord.ButtonStyle.secondary, row=1)
+        aplicar_btn_admin(self, "precos")
         self.ch, self.painel_msg = ch, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -991,7 +1043,8 @@ class _BtnGerenciarPrecos(Button):
 
 class _BtnVoltarCategoria(Button):
     def __init__(self, cat, painel_msg):
-        super().__init__(label="◀️  Voltar", style=discord.ButtonStyle.secondary, row=1)
+        super().__init__(style=discord.ButtonStyle.secondary, row=1)
+        aplicar_btn_admin(self, "voltar")
         self.cat, self.painel_msg = cat, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -1165,6 +1218,7 @@ class PainelPrincipalView(View):
         self.add_item(_BtnEmbedGlobal(painel_msg))
         self.add_item(_BtnFilasToggle(painel_msg))
         self.add_item(_BtnPublicar(painel_msg))
+        self.add_item(_BtnPersonalizarPainel(painel_msg))
 
     def set_message(self, msg):
         self.painel_msg = msg
@@ -1185,7 +1239,8 @@ class _BtnCategoria(Button):
 
 class _BtnConfigGeral(Button):
     def __init__(self, painel_msg):
-        super().__init__(label="⚙️  Config Geral", style=discord.ButtonStyle.primary, row=1)
+        super().__init__(style=discord.ButtonStyle.primary, row=1)
+        aplicar_btn_admin(self, "config_geral")
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -1195,7 +1250,8 @@ class _BtnConfigGeral(Button):
 
 class _BtnEmbedGlobal(Button):
     def __init__(self, painel_msg):
-        super().__init__(label="🎨  Embed Global", style=discord.ButtonStyle.primary, row=1)
+        super().__init__(style=discord.ButtonStyle.primary, row=1)
+        aplicar_btn_admin(self, "embed_global")
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -1208,10 +1264,12 @@ class _BtnFilasToggle(Button):
         config = carregar_config()
         ativas = config.get("global", {}).get("filas_ativas", True)
         super().__init__(
-            label="🛑  Filas OFF" if ativas else "🟢  Filas ON",
             style=discord.ButtonStyle.danger if ativas else discord.ButtonStyle.success,
             row=1,
         )
+        # Quando filas estão ATIVAS, o botão oferece DESLIGAR (filas_off);
+        # quando DESATIVADAS, oferece LIGAR (filas_on).
+        aplicar_btn_admin(self, "filas_off" if ativas else "filas_on")
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -1234,9 +1292,36 @@ class _BtnFilasToggle(Button):
         )
 
 
+class _BtnPersonalizarPainel(Button):
+    def __init__(self, painel_msg):
+        super().__init__(style=discord.ButtonStyle.secondary, row=1)
+        aplicar_btn_admin(self, "personalizar")
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
+        embed = discord.Embed(
+            title="🎛️ Personalizar Painel",
+            description=(
+                "Escolha qual grupo de botões você quer customizar.\n\n"
+                "**Como funciona:** em cada campo você cola `emoji texto` "
+                "(ex: `🎮 Editar`) ou um emoji custom no formato "
+                "`<:nome:id> Texto`.\n"
+                "Para deixar **só emoji**, escreva apenas ele.\n"
+                "Pra usar emoji custom do seu servidor, digite no chat "
+                "`\\:nome_emoji:` e copie o código que aparecer."
+            ),
+            color=cor_global(config),
+        )
+        await interaction.response.send_message(embed=embed, view=PersonalizarPainelView(), ephemeral=True)
+
+
 class _BtnPublicar(Button):
     def __init__(self, painel_msg):
-        super().__init__(label="🚀  Publicar Filas", style=discord.ButtonStyle.success, row=1)
+        super().__init__(style=discord.ButtonStyle.success, row=1)
+        aplicar_btn_admin(self, "publicar")
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -2597,6 +2682,137 @@ bot = MyBot()
 # ──────────────────────────────────────────────
 # Permission check para slash commands
 # ──────────────────────────────────────────────
+
+# ──────────────────────────────────────────────
+# Personalizar Painel — view + modais
+# ──────────────────────────────────────────────
+
+class PersonalizarPainelView(View):
+    def __init__(self):
+        super().__init__(timeout=300)
+        self.add_item(_BtnAbrirPainelPrincipalModal())
+        self.add_item(_BtnAbrirPainelModoModal())
+        self.add_item(_BtnAbrirPainelExtrasModal())
+
+
+class _BtnAbrirPainelPrincipalModal(Button):
+    def __init__(self):
+        super().__init__(label="Botões: Painel Principal", emoji="🏠", style=discord.ButtonStyle.primary, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(PersonalizarPainelPrincipalModal())
+
+
+class _BtnAbrirPainelModoModal(Button):
+    def __init__(self):
+        super().__init__(label="Botões: Painel do Modo", emoji="🎮", style=discord.ButtonStyle.primary, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(PersonalizarPainelModoModal())
+
+
+class _BtnAbrirPainelExtrasModal(Button):
+    def __init__(self):
+        super().__init__(label="Botões: Visualizar / Preços / Voltar", emoji="🧰", style=discord.ButtonStyle.primary, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(PersonalizarPainelExtrasModal())
+
+
+def _btn_input(label: str, key: str) -> TextInput:
+    info = get_admin_btn(key)
+    default = f"{info['emoji']} {info['label']}".strip() if info['label'] else (info['emoji'] or "")
+    return TextInput(
+        label=label[:45],
+        default=default,
+        max_length=100, required=True,
+        placeholder="emoji texto  ou  <:nome:id> Texto",
+    )
+
+
+def _salvar_btn(config: dict, key: str, valor: str, label_required: bool = True):
+    pab = config["global"].setdefault("painel_admin_botoes", {})
+    valor = valor.strip()
+    if not valor:
+        return
+    # Se o usuário só colou um emoji (sem texto), mantém só o emoji.
+    e, lbl = parse_emoji_label(valor)
+    # Caso parse_emoji_label devolva texto inteiro como label sem emoji custom,
+    # detecta também o caso "só emoji unicode" pra não duplicar.
+    if not label_required and (e == "🎮" and lbl == valor):
+        # O parse não achou emoji; assume que tudo é emoji unicode.
+        pab[key] = {"emoji": valor, "label": ""}
+        return
+    pab[key] = {"emoji": e, "label": lbl}
+
+
+class PersonalizarPainelPrincipalModal(Modal):
+    def __init__(self):
+        super().__init__(title="Painel Principal")
+        self.b1 = _btn_input("Config Geral",         "config_geral")
+        self.b2 = _btn_input("Embed Global",         "embed_global")
+        self.b3 = _btn_input("Filas ON (quando OFF)", "filas_on")
+        self.b4 = _btn_input("Filas OFF (quando ON)", "filas_off")
+        self.b5 = _btn_input("Publicar Filas",       "publicar")
+        for it in (self.b1, self.b2, self.b3, self.b4, self.b5):
+            self.add_item(it)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
+        _salvar_btn(config, "config_geral", self.b1.value)
+        _salvar_btn(config, "embed_global", self.b2.value)
+        _salvar_btn(config, "filas_on",     self.b3.value)
+        _salvar_btn(config, "filas_off",    self.b4.value)
+        _salvar_btn(config, "publicar",     self.b5.value)
+        salvar_config(config)
+        await interaction.response.send_message("✅ Botões do painel principal atualizados! Reabra o painel pra ver.", ephemeral=True)
+
+
+class PersonalizarPainelModoModal(Modal):
+    def __init__(self):
+        super().__init__(title="Painel do Modo")
+        self.b1 = _btn_input("Título/Banner",  "editar_embed")
+        self.b2 = _btn_input("Editar Botões",  "editar_botoes")
+        self.b3 = _btn_input("Texto/Layout",   "texto_layout")
+        self.b4 = _btn_input("Placeholders",   "placeholders")
+        self.b5 = _btn_input("Personalizar Painel (botão)", "personalizar")
+        for it in (self.b1, self.b2, self.b3, self.b4, self.b5):
+            self.add_item(it)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
+        _salvar_btn(config, "editar_embed",  self.b1.value)
+        _salvar_btn(config, "editar_botoes", self.b2.value)
+        _salvar_btn(config, "texto_layout",  self.b3.value)
+        _salvar_btn(config, "placeholders",  self.b4.value)
+        _salvar_btn(config, "personalizar",  self.b5.value)
+        salvar_config(config)
+        await interaction.response.send_message("✅ Botões do painel do modo atualizados! Reabra o painel pra ver.", ephemeral=True)
+
+
+class PersonalizarPainelExtrasModal(Modal):
+    def __init__(self):
+        super().__init__(title="Visualizar / Preços / Voltar")
+        self.b1 = _btn_input("Visualizar", "visualizar")
+        self.b2 = _btn_input("Preços",     "precos")
+        self.b3 = _btn_input("Voltar",     "voltar")
+        for it in (self.b1, self.b2, self.b3):
+            self.add_item(it)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
+        _salvar_btn(config, "visualizar", self.b1.value)
+        _salvar_btn(config, "precos",     self.b2.value)
+        _salvar_btn(config, "voltar",     self.b3.value)
+        salvar_config(config)
+        await interaction.response.send_message("✅ Botões auxiliares atualizados! Reabra o painel pra ver.", ephemeral=True)
+
 
 async def _check_pode_admin(interaction: discord.Interaction) -> bool:
     config = carregar_config()
