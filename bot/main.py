@@ -314,7 +314,7 @@ def _ctx_fila(ch: str, preco: dict, config: dict) -> dict:
     total     = jogadores_da_chave(ch)
     lista_jog = "\n".join(f"{i+1}. <@{uid}>" for i, uid in enumerate(jogadores)) or "*Nenhum jogador na fila.*"
     return {
-        "modo_jogo":      f"{EMOJI_MODO.get(m,'')} {m}".strip(),
+        "modo_jogo":      m,
         "valor_partida":  preco.get("valor", ""),
         "jogadores_fila": lista_jog,
     }
@@ -889,6 +889,7 @@ class ModoConfigView(View):
         self.add_item(_BtnEditarBotoes(ch, painel_msg))
         self.add_item(_BtnEditarLayout(ch, painel_msg))
         self.add_item(_BtnVerPlaceholders(ch))
+        self.add_item(_BtnVisualizar(ch))
         self.add_item(_BtnGerenciarPrecos(ch, painel_msg))
         self.add_item(_BtnVoltarCategoria(cat, painel_msg))
 
@@ -931,7 +932,7 @@ class _BtnEditarBotoes(Button):
 
 class _BtnEditarLayout(Button):
     def __init__(self, ch, painel_msg):
-        super().__init__(label="📝  Texto/Layout", style=discord.ButtonStyle.secondary, row=2)
+        super().__init__(label="Texto/Layout", style=discord.ButtonStyle.secondary, row=2)
         self.ch, self.painel_msg = ch, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
@@ -941,7 +942,7 @@ class _BtnEditarLayout(Button):
 
 class _BtnVerPlaceholders(Button):
     def __init__(self, ch):
-        super().__init__(label="❓  Placeholders", style=discord.ButtonStyle.secondary, row=2)
+        super().__init__(label="Placeholders", style=discord.ButtonStyle.secondary, row=2)
         self.ch = ch
 
     async def callback(self, interaction: discord.Interaction):
@@ -953,6 +954,29 @@ class _BtnVerPlaceholders(Button):
               "das chaves \" `[[]]` \", igual os exemplos a cima.*"
         )
         await interaction.response.send_message(texto, ephemeral=True)
+
+
+class _BtnVisualizar(Button):
+    def __init__(self, ch):
+        super().__init__(label="Visualizar", style=discord.ButtonStyle.success, row=2)
+        self.ch = ch
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        cfg = config[self.ch]
+        precos = cfg.get("precos", [])
+        if not precos:
+            await interaction.response.send_message(
+                "⚠️ Esse modo ainda não tem nenhum preço cadastrado para gerar a prévia.",
+                ephemeral=True,
+            )
+            return
+        embed = build_embed_fila(self.ch, precos[0], config)
+        await interaction.response.send_message(
+            content="**Prévia do embed da fila:**",
+            embed=embed,
+            ephemeral=True,
+        )
 
 
 class _BtnGerenciarPrecos(Button):

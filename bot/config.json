@@ -167,7 +167,7 @@
     "titulo": "Mobile 1v1",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1490011049213169945,
+    "canal_id": 1494450378471768267,
     "botao1": {
       "emoji": "🎮",
       "label": "Opção 1"
@@ -192,7 +192,9 @@
         "valor": "R$ 10,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "Filas [[modo_jogo]]",
+    "cor": "#FFDF00"
   },
   "Mobile_2v2": {
     "titulo": "Mobile 2v2",
@@ -213,7 +215,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Mobile_3v3": {
     "titulo": "Mobile 3v3",
@@ -236,7 +240,9 @@
           "1479876596235239426"
         ]
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Mobile_4v4": {
     "titulo": "Mobile 4v4",
@@ -259,7 +265,9 @@
           "1479876596235239426"
         ]
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Emulador_1v1": {
     "titulo": "Emulador 1v1",
@@ -280,7 +288,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Emulador_2v2": {
     "titulo": "Emulador 2v2",
@@ -301,7 +311,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Emulador_3v3": {
     "titulo": "Emulador 3v3",
@@ -322,7 +334,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Emulador_4v4": {
     "titulo": "Emulador 4v4",
@@ -343,7 +357,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Misto_2v2": {
     "titulo": "Misto 2v2",
@@ -364,7 +380,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Misto_3v3": {
     "titulo": "Misto 3v3",
@@ -385,7 +403,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Misto_4v4": {
     "titulo": "Misto 4v4",
@@ -406,7 +426,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Tático_1v1": {
     "titulo": "Tático 1v1",
@@ -427,7 +449,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Tático_2v2": {
     "titulo": "Tático 2v2",
@@ -448,7 +472,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Tático_3v3": {
     "titulo": "Tático 3v3",
@@ -469,7 +495,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "Tático_4v4": {
     "titulo": "Tático 4v4",
@@ -490,7 +518,9 @@
         "valor": "R$ 1,00",
         "jogadores": []
       }
-    ]
+    ],
+    "descricao_template": "",
+    "cor": ""
   },
   "aparencias": {}
 }
