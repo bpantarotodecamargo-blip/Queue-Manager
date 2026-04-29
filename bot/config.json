@@ -193,7 +193,7 @@
         "jogadores": []
       }
     ],
-    "descricao_template": "Filas [[modo_jogo]]",
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
     "cor": "#FFDF00"
   },
   "Mobile_2v2": {
