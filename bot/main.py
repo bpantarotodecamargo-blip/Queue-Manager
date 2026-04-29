@@ -1766,7 +1766,7 @@ _filas_on_msgs: dict[int, int] = {}
 async def _atualizar_status_filas(guild: discord.Guild, config: dict):
     """Atualiza imediatamente as mensagens de status FILAS ON/OFF nos canais publicados."""
     ativas = config.get("global", {}).get("filas_ativas", True)
-    texto = "@everyone  **🟢 FILAS ON**" if ativas else "**🛑 FILAS OFF — entrada desabilitada**"
+    texto = "@everyone\n# 🟢 FILAS ON" if ativas else "# 🛑 FILAS OFF\n-# entrada desabilitada"
 
     for canal_id, msg_id in list(_filas_on_msgs.items()):
         try:
@@ -1792,7 +1792,7 @@ async def _renovar_filas_on():
         await asyncio.sleep(300)
         config = carregar_config()
         ativas = config.get("global", {}).get("filas_ativas", True)
-        texto = "@everyone  **🟢 FILAS ON**" if ativas else "**🛑 FILAS OFF — entrada desabilitada**"
+        texto = "@everyone\n# 🟢 FILAS ON" if ativas else "# 🛑 FILAS OFF\n-# entrada desabilitada"
         for canal_id, msg_id in list(_filas_on_msgs.items()):
             try:
                 canal = bot.get_channel(canal_id)
@@ -1844,7 +1844,7 @@ async def _publicar_filas(interaction: discord.Interaction, config: dict):
 
     # Status (FILAS ON / OFF) em cada canal único
     ativas = config.get("global", {}).get("filas_ativas", True)
-    texto  = "@everyone  **🟢 FILAS ON**" if ativas else "**🛑 FILAS OFF — entrada desabilitada**"
+    texto  = "@everyone\n# 🟢 FILAS ON" if ativas else "# 🛑 FILAS OFF\n-# entrada desabilitada"
     canais_notif: set = set()
     for ch in ALL_MODOS:
         cid = config[ch].get("canal_id")
