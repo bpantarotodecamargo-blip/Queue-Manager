@@ -2822,6 +2822,98 @@ async def _check_pode_admin(interaction: discord.Interaction) -> bool:
     return False
 
 
+class _LimparConfirmView(View):
+    def __init__(self, autor_id: int, canal: discord.TextChannel):
+        super().__init__(timeout=60)
+        self.autor_id = autor_id
+        self.canal = canal
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.autor_id:
+            await interaction.response.send_message("❌ Só quem usou o comando pode confirmar.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Apagar tudo", emoji="🗑️", style=discord.ButtonStyle.danger)
+    async def confirmar(self, interaction: discord.Interaction, button: Button):
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(content="🧹 Apagando mensagens...", view=self)
+
+        total = 0
+        try:
+            # purge() apaga até 14 dias em massa; mensagens mais antigas precisam delete() individual.
+            while True:
+                deletadas = await self.canal.purge(limit=100, bulk=True)
+                total += len(deletadas)
+                if len(deletadas) < 100:
+                    break
+            # Tenta apagar mensagens antigas restantes (>14 dias) uma a uma
+            async for msg in self.canal.history(limit=None):
+                try:
+                    await msg.delete()
+                    total += 1
+                except Exception:
+                    pass
+        except discord.Forbidden:
+            try:
+                await interaction.followup.send("❌ Não tenho permissão de **Gerenciar Mensagens** neste canal.", ephemeral=True)
+            except Exception:
+                pass
+            return
+        except Exception as e:
+            try:
+                await interaction.followup.send(f"❌ Erro ao apagar: `{e}`", ephemeral=True)
+            except Exception:
+                pass
+            return
+
+        try:
+            aviso = await self.canal.send(f"# 🧹 Canal limpo!\n-# {total} mensagem(ns) apagada(s) por {interaction.user.mention}.")
+            await asyncio.sleep(5)
+            await aviso.delete()
+        except Exception:
+            pass
+
+    @discord.ui.button(label="Cancelar", emoji="✖️", style=discord.ButtonStyle.secondary)
+    async def cancelar(self, interaction: discord.Interaction, button: Button):
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(content="❎ Limpeza cancelada.", view=self)
+
+
+@bot.tree.command(name="limpar", description="Apaga TODAS as mensagens deste canal (com confirmação)")
+async def limpar(interaction: discord.Interaction):
+    if not await _check_pode_admin(interaction):
+        return
+    canal = interaction.channel
+    if not isinstance(canal, discord.TextChannel):
+        await interaction.response.send_message("❌ Esse comando só funciona em canais de texto.", ephemeral=True)
+        return
+
+    perms = canal.permissions_for(interaction.guild.me) if interaction.guild else None
+    if perms and not perms.manage_messages:
+        await interaction.response.send_message(
+            "❌ Eu preciso da permissão **Gerenciar Mensagens** neste canal pra apagar.",
+            ephemeral=True,
+        )
+        return
+
+    embed = discord.Embed(
+        title="⚠️ Confirmar limpeza",
+        description=(
+            f"Você está prestes a apagar **TODAS as mensagens** de {canal.mention}.\n\n"
+            "Essa ação é **irreversível**. Tem certeza?"
+        ),
+        color=discord.Color.red(),
+    )
+    await interaction.response.send_message(
+        embed=embed,
+        view=_LimparConfirmView(interaction.user.id, canal),
+        ephemeral=True,
+    )
+
+
 @bot.tree.command(name="painel", description="Abre o painel de configuração das filas")
 async def painel(interaction: discord.Interaction):
     if not await _check_pode_admin(interaction):
