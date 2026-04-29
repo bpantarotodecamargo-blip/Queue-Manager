@@ -640,19 +640,12 @@ class EditarLayoutModal(Modal):
         self.ch, self.painel_msg = ch, painel_msg
         cfg = config[ch]
 
-        exemplo = (
-            "### Filas Mobile\n"
-            "🎮 **Modo:** [[modo_jogo]]\n"
-            "💰 **Valor:** [[valor_partida]]\n"
-            "👥 **Jogadores:**\n[[jogadores_fila]]"
-        )
-
         self.descricao = TextInput(
             label="ADICIONE A DESCRIÇÃO DO EMBED",
             default=cfg.get("descricao_template", ""),
             required=True, max_length=2000,
             style=discord.TextStyle.paragraph,
-            placeholder=exemplo,
+            placeholder="Ex: [[modo_jogo]] • [[valor_partida]]\n[[jogadores_fila]]",
         )
         self.thumb = TextInput(
             label="ADICIONE A URL DO AVATAR (Thumbnail)",
