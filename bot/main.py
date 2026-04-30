@@ -164,8 +164,10 @@ def _modo_padrao(ch: str) -> dict:
         "banner":    "",
         "thumbnail": "",
         "canal_id":  None,
-        "botao1":    {"emoji": "🎮", "label": "Opção 1"},
-        "botao2":    {"emoji": "🔫", "label": "Opção 2"},
+        "botao1":       {"emoji": "🎮",  "label": "Opção 1",     "estilo": "secondary"},
+        "botao2":       {"emoji": "🔫",  "label": "Opção 2",     "estilo": "secondary"},
+        "botao_sair":   {"emoji": "❌",  "label": "Sair da fila", "estilo": "danger"},
+        "botao_limpar": {"emoji": "🗑️", "label": "Limpar",       "estilo": "secondary"},
         "precos":    [{"id": gerar_id(), "valor": "R$ 1,00", "jogadores": []}],
         # Layout/texto personalizável.
         # Placeholders no formato [[chave]] — válidos:
@@ -320,8 +322,15 @@ def carregar_config() -> dict:
         cfg.setdefault("banner",    "")
         cfg.setdefault("thumbnail", "")
         cfg.setdefault("canal_id",  None)
-        cfg.setdefault("botao1",    {"emoji": "🎮", "label": "Opção 1"})
-        cfg.setdefault("botao2",    {"emoji": "🔫", "label": "Opção 2"})
+        cfg.setdefault("botao1",       {"emoji": "🎮",  "label": "Opção 1",     "estilo": "secondary"})
+        cfg.setdefault("botao2",       {"emoji": "🔫",  "label": "Opção 2",     "estilo": "secondary"})
+        cfg.setdefault("botao_sair",   {"emoji": "❌",  "label": "Sair da fila", "estilo": "danger"})
+        cfg.setdefault("botao_limpar", {"emoji": "🗑️", "label": "Limpar",       "estilo": "secondary"})
+        # Migra botões antigos sem 'estilo'
+        for bk, default_est in (("botao1","secondary"),("botao2","secondary"),("botao_sair","danger"),("botao_limpar","secondary")):
+            cfg[bk].setdefault("estilo", default_est)
+            cfg[bk].setdefault("emoji", "")
+            cfg[bk].setdefault("label", "")
         cfg.setdefault("precos",    [{"id": gerar_id(), "valor": "R$ 1,00", "jogadores": []}])
         cfg.setdefault("descricao_template", "")
         cfg.setdefault("cor",                "")
@@ -851,25 +860,59 @@ async def _republicar_embeds_modo(ch: str, config: dict):
             pass
 
 
+def _fmt_btn_default(b: dict) -> str:
+    """Formata um botão {emoji, label, estilo} no formato do modal."""
+    base = f"{b.get('emoji','')} {b.get('label','')}".strip()
+    est_pt = ESTILOS_PT.get(b.get("estilo","secondary"), b.get("estilo","secondary"))
+    return f"{base} | {est_pt}" if base else f"| {est_pt}"
+
+
+def _parse_btn_input(texto: str, estilo_default: str = "secondary") -> tuple[str, str, str]:
+    """Faz parse de 'emoji label | estilo'. Retorna (emoji, label, estilo)."""
+    if "|" in texto:
+        antes, depois = texto.rsplit("|", 1)
+        estilo = _parse_estilo(depois)
+    else:
+        antes, estilo = texto, estilo_default
+    e, l = parse_emoji_label(antes.strip())
+    return e, l, estilo
+
+
 class EditarBotoesModal(Modal):
     def __init__(self, ch: str, config: dict, painel_msg=None):
         super().__init__(title=f"Editar Botões — {display(ch)}"[:45])
         self.ch, self.painel_msg = ch, painel_msg
-        b1, b2 = config[ch]["botao1"], config[ch]["botao2"]
-        self.b1 = TextInput(label="Botão 1 — emoji + nome", default=f"{b1['emoji']} {b1['label']}", max_length=100, required=True, placeholder="🎮 Jogar normal  ou  <:emoji:id> Nome")
-        self.b2 = TextInput(label="Botão 2 — emoji + nome", default=f"{b2['emoji']} {b2['label']}", max_length=100, required=True, placeholder="🔫 Ranked  ou  <:emoji:id> Nome")
-        self.add_item(self.b1); self.add_item(self.b2)
+        b1 = config[ch]["botao1"]
+        b2 = config[ch]["botao2"]
+        bs = config[ch]["botao_sair"]
+        bl = config[ch]["botao_limpar"]
+        ph = "🎮 Texto | azul/cinza/verde/vermelho"
+        self.b1 = TextInput(label="Botão 1 — Entrar (emoji nome | cor)",
+                            default=_fmt_btn_default(b1), max_length=100, required=True, placeholder=ph)
+        self.b2 = TextInput(label="Botão 2 — Entrar (emoji nome | cor)",
+                            default=_fmt_btn_default(b2), max_length=100, required=True, placeholder=ph)
+        self.bs = TextInput(label="Botão Sair (emoji nome | cor)",
+                            default=_fmt_btn_default(bs), max_length=100, required=True, placeholder="❌ Sair da fila | vermelho")
+        self.bl = TextInput(label="Botão Limpar (emoji nome | cor)",
+                            default=_fmt_btn_default(bl), max_length=100, required=True, placeholder="🗑️ Limpar | cinza")
+        self.add_item(self.b1); self.add_item(self.b2); self.add_item(self.bs); self.add_item(self.bl)
 
     async def on_submit(self, interaction: discord.Interaction):
         config = carregar_config()
-        e1, l1 = parse_emoji_label(self.b1.value)
-        e2, l2 = parse_emoji_label(self.b2.value)
-        config[self.ch]["botao1"] = {"emoji": e1, "label": l1}
-        config[self.ch]["botao2"] = {"emoji": e2, "label": l2}
+        e1, l1, es1 = _parse_btn_input(self.b1.value, "secondary")
+        e2, l2, es2 = _parse_btn_input(self.b2.value, "secondary")
+        es, ls, ess = _parse_btn_input(self.bs.value, "danger")
+        el, ll, esl = _parse_btn_input(self.bl.value, "secondary")
+        config[self.ch]["botao1"]       = {"emoji": e1, "label": l1, "estilo": es1}
+        config[self.ch]["botao2"]       = {"emoji": e2, "label": l2, "estilo": es2}
+        config[self.ch]["botao_sair"]   = {"emoji": es, "label": ls, "estilo": ess}
+        config[self.ch]["botao_limpar"] = {"emoji": el, "label": ll, "estilo": esl}
         salvar_config(config)
         cat, _ = split_chave(self.ch)
         await interaction.response.edit_message(embed=build_embed_config_modo(self.ch, config), view=ModoConfigView(self.ch, cat, self.painel_msg))
         await _atualizar_painel(self.painel_msg, config)
+        # Re-publica as views nas mensagens já enviadas
+        await _republicar_embeds_modo(self.ch, config)
 
 
 # ──────────────────────────────────────────────
@@ -1729,17 +1772,34 @@ class _BtnPublicar(Button):
 # ──────────────────────────────────────────────
 
 class FilaView(View):
-    def __init__(self, ch: str, preco_id: str, botao1: dict, botao2: dict):
+    def __init__(self, ch: str, preco_id: str, *_legacy, config: dict | None = None):
+        """Cria a view dos botões da fila lendo todos os 4 botões do config.
+
+        Aceita assinatura legada (ch, preco_id, b1, b2) — os args extras são ignorados
+        e o config é recarregado pra garantir que use a customização atual.
+        """
         super().__init__(timeout=None)
-        self.add_item(_EntrarBtn(ch, preco_id, 1, botao1["emoji"], botao1["label"]))
-        self.add_item(_EntrarBtn(ch, preco_id, 2, botao2["emoji"], botao2["label"]))
-        self.add_item(_SairBtn(preco_id))
-        self.add_item(_LimparBtn(preco_id))
+        if config is None:
+            config = carregar_config()
+        cm = config.get(ch, {})
+        b1 = cm.get("botao1",       {"emoji": "🎮",  "label": "Opção 1",     "estilo": "secondary"})
+        b2 = cm.get("botao2",       {"emoji": "🔫",  "label": "Opção 2",     "estilo": "secondary"})
+        bs = cm.get("botao_sair",   {"emoji": "❌",  "label": "Sair da fila", "estilo": "danger"})
+        bl = cm.get("botao_limpar", {"emoji": "🗑️", "label": "Limpar",       "estilo": "secondary"})
+        self.add_item(_EntrarBtn(ch, preco_id, 1, b1.get("emoji",""), b1.get("label",""), b1.get("estilo","secondary")))
+        self.add_item(_EntrarBtn(ch, preco_id, 2, b2.get("emoji",""), b2.get("label",""), b2.get("estilo","secondary")))
+        self.add_item(_SairBtn(preco_id, bs.get("emoji","❌"), bs.get("label","Sair da fila"), bs.get("estilo","danger")))
+        self.add_item(_LimparBtn(preco_id, bl.get("emoji","🗑️"), bl.get("label","Limpar"), bl.get("estilo","secondary")))
 
 
 class _EntrarBtn(Button):
-    def __init__(self, ch, preco_id, num, emoji, label):
-        super().__init__(label=f"  {label}", emoji=to_discord_emoji(emoji), style=discord.ButtonStyle.secondary, custom_id=f"entrar{num}_{preco_id}")
+    def __init__(self, ch, preco_id, num, emoji, label, estilo: str = "secondary"):
+        super().__init__(
+            label=f"  {label}" if label else None,
+            emoji=to_discord_emoji(emoji) if emoji else None,
+            style=ESTILOS_BTN.get(estilo, discord.ButtonStyle.secondary),
+            custom_id=f"entrar{num}_{preco_id}",
+        )
         self.ch, self.preco_id = ch, preco_id
 
     async def callback(self, interaction: discord.Interaction):
@@ -1777,8 +1837,13 @@ class _EntrarBtn(Button):
 
 
 class _SairBtn(Button):
-    def __init__(self, preco_id):
-        super().__init__(label="Sair da fila", emoji="❌", style=discord.ButtonStyle.danger, custom_id=f"sair_{preco_id}")
+    def __init__(self, preco_id, emoji: str = "❌", label: str = "Sair da fila", estilo: str = "danger"):
+        super().__init__(
+            label=label or None,
+            emoji=to_discord_emoji(emoji) if emoji else None,
+            style=ESTILOS_BTN.get(estilo, discord.ButtonStyle.danger),
+            custom_id=f"sair_{preco_id}",
+        )
         self.preco_id = preco_id
 
     async def callback(self, interaction: discord.Interaction):
@@ -1796,8 +1861,13 @@ class _SairBtn(Button):
 
 
 class _LimparBtn(Button):
-    def __init__(self, preco_id):
-        super().__init__(label="Limpar", emoji="🗑️", style=discord.ButtonStyle.secondary, custom_id=f"limpar_{preco_id}")
+    def __init__(self, preco_id, emoji: str = "🗑️", label: str = "Limpar", estilo: str = "secondary"):
+        super().__init__(
+            label=label or None,
+            emoji=to_discord_emoji(emoji) if emoji else None,
+            style=ESTILOS_BTN.get(estilo, discord.ButtonStyle.secondary),
+            custom_id=f"limpar_{preco_id}",
+        )
         self.preco_id = preco_id
 
     async def callback(self, interaction: discord.Interaction):
@@ -2349,14 +2419,16 @@ async def _publicar_filas(interaction: discord.Interaction, config: dict):
         canal = interaction.guild.get_channel(config[ch].get("canal_id"))
         if not canal:
             continue
-        b1, b2 = config[ch]["botao1"], config[ch]["botao2"]
-        for preco in config[ch].get("precos", []):
+        # Garante que os preços estão ordenados do menor pro maior antes de publicar
+        config[ch]["precos"] = _ordenar_precos(config[ch].get("precos", []))
+        for preco in config[ch]["precos"]:
             embed = build_embed_fila(ch, preco, config)
-            view  = FilaView(ch, preco["id"], b1, b2)
+            view  = FilaView(ch, preco["id"], config=config)
             msg = await canal.send(embed=embed, view=view)
             _filas_msg_ids[preco["id"]] = (canal.id, msg.id)
             publicados.append(f"{EMOJI_CATEGORIA[split_chave(ch)[0]]} **{display(ch)}** `{preco['valor']}` → {canal.mention}")
             await asyncio.sleep(0.3)
+    salvar_config(config)
 
     # Status (FILAS ON / OFF) em cada canal único
     ativas = config.get("global", {}).get("filas_ativas", True)

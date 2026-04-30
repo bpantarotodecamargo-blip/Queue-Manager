@@ -253,38 +253,63 @@
     },
     "precos": [
       {
-        "id": "df46e77f3b",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "33401fe4b5",
+        "id": "11c3ab688f",
         "valor": "R$ 0,25",
         "jogadores": []
       },
       {
-        "id": "e4051c8d1c",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "e3cf1cfccd",
+        "id": "afbebe9756",
         "valor": "R$ 0,50",
         "jogadores": []
       },
       {
-        "id": "677bbeca53",
+        "id": "913483572c",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "638870bc40",
         "valor": "R$ 2,00",
         "jogadores": []
       },
       {
-        "id": "dc93220537",
+        "id": "d826262011",
         "valor": "R$ 3,00",
         "jogadores": []
       },
       {
-        "id": "3a688ac702",
+        "id": "4ce6223f5c",
         "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "b8f8882cc7",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "1098d6b42c",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "53ef5428bb",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "217e5d1953",
+        "valor": "R$ 50,00",
+        "jogadores": []
+      },
+      {
+        "id": "0e4cf1dd00",
+        "valor": "R$ 100,00",
+        "jogadores": []
+      },
+      {
+        "id": "79124192ec",
+        "valor": "R$ 200,00",
         "jogadores": []
       }
     ],
