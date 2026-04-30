@@ -188,6 +188,7 @@ def carregar_config() -> dict:
     g.setdefault("cargo_adm_id",       None)   # cargo notificado nas partidas
     g.setdefault("cargo_max_id",       None)   # permissão máxima (usar painel)
     g.setdefault("cargo_mediador_id",  None)   # cargo dos mediadores
+    g.setdefault("cargo_autorole_id",  None)   # cargo dado automaticamente a novos membros
     g.setdefault("categoria_id",       None)
     g.setdefault("filas_ativas",       True)
     g.setdefault("embed_global", {
@@ -515,11 +516,13 @@ def build_embed_config_geral(config: dict) -> discord.Embed:
     cargo_adm = f"<@&{g['cargo_adm_id']}>" if g.get("cargo_adm_id") else "`Não definido`"
     cargo_max = f"<@&{g['cargo_max_id']}>" if g.get("cargo_max_id") else "`Não definido`"
     cargo_med = f"<@&{g['cargo_mediador_id']}>" if g.get("cargo_mediador_id") else "`Não definido`"
+    cargo_auto = f"<@&{g['cargo_autorole_id']}>" if g.get("cargo_autorole_id") else "`Não definido`"
     cat   = f"<#{g['categoria_id']}>"   if g.get("categoria_id") else "`Não definida`"
     embed = discord.Embed(title="⚙️  Configuração Global", color=cor_global(config))
     embed.add_field(name="👑 Cargo Permissão Máxima", value=cargo_max, inline=False)
     embed.add_field(name="🛡️ Cargo ADM (notificado nas partidas)", value=cargo_adm, inline=False)
     embed.add_field(name="🤝 Cargo Mediador",         value=cargo_med, inline=False)
+    embed.add_field(name="🎟️ Cargo Autorole (novos membros)", value=cargo_auto, inline=False)
     embed.add_field(name="📁 Categoria de canais",    value=cat,       inline=False)
     embed.add_field(
         name="ℹ️ Como funciona",
@@ -1127,6 +1130,75 @@ class ConfigGeralView(View):
         self.add_item(_RoleSelectMediador(painel_msg))
         self.add_item(_CanalSelectCategoria(painel_msg))
         self.add_item(_BtnVoltarPainelGeral(painel_msg))
+        self.add_item(_BtnAbrirAutorole(painel_msg))
+
+
+class ConfigAutoroleView(View):
+    def __init__(self, painel_msg=None):
+        super().__init__(timeout=300)
+        self.painel_msg = painel_msg
+        self.add_item(_RoleSelectAutorole(painel_msg))
+        self.add_item(_BtnVoltarConfigGeral(painel_msg))
+
+
+def build_embed_config_autorole(config: dict) -> discord.Embed:
+    g = config.get("global", {})
+    cargo_auto = f"<@&{g['cargo_autorole_id']}>" if g.get("cargo_autorole_id") else "`Não definido`"
+    embed = discord.Embed(
+        title="🎟️  Autorole — Cargo automático",
+        description=(
+            "Escolha um cargo abaixo. Todo membro novo que entrar no servidor "
+            "vai receber esse cargo automaticamente.\n\n"
+            "Para **desativar**, abra o seletor e clique fora sem escolher nada."
+        ),
+        color=cor_global(config),
+    )
+    embed.add_field(name="Cargo atual", value=cargo_auto, inline=False)
+    embed.add_field(
+        name="⚠️ Importante",
+        value=(
+            "• O cargo do bot precisa estar **acima** do cargo do autorole na lista de cargos.\n"
+            "• O bot precisa da permissão **Gerenciar Cargos**.\n"
+            "• Não funciona com bots que entrarem no servidor (apenas usuários)."
+        ),
+        inline=False,
+    )
+    return embed
+
+
+class _RoleSelectAutorole(RoleSelect):
+    def __init__(self, painel_msg):
+        super().__init__(placeholder="🎟️ Selecione o Cargo Autorole...", min_values=0, max_values=1, row=0)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        config["global"]["cargo_autorole_id"] = self.values[0].id if self.values else None
+        salvar_config(config)
+        await interaction.response.edit_message(embed=build_embed_config_autorole(config), view=ConfigAutoroleView(self.painel_msg))
+        txt = f"✅ Autorole definido: {self.values[0].mention}" if self.values else "✅ Autorole removido."
+        await interaction.followup.send(txt, ephemeral=True)
+        await _atualizar_painel(self.painel_msg, config)
+
+
+class _BtnAbrirAutorole(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="🎟️  Autorole", style=discord.ButtonStyle.primary, row=4)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.edit_message(embed=build_embed_config_autorole(config), view=ConfigAutoroleView(self.painel_msg))
+
+
+class _BtnVoltarConfigGeral(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="◀️  Voltar", style=discord.ButtonStyle.secondary, row=4)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
 
 
 class _RoleSelectMax(RoleSelect):
@@ -2768,6 +2840,26 @@ class MyBot(discord.Client):
             print(f"✅ Comandos sincronizados ao entrar em '{guild.name}'")
         except Exception as e:
             print(f"⚠️ Erro ao sincronizar em '{guild.name}': {e}")
+
+    async def on_member_join(self, member: discord.Member):
+        # Autorole — dá um cargo automaticamente para novos membros
+        if member.bot:
+            return
+        try:
+            cfg = carregar_config()
+            cargo_id = cfg.get("global", {}).get("cargo_autorole_id")
+            if not cargo_id:
+                return
+            cargo = member.guild.get_role(cargo_id)
+            if not cargo:
+                print(f"⚠️ Autorole: cargo {cargo_id} não encontrado em '{member.guild.name}'.")
+                return
+            await member.add_roles(cargo, reason="Autorole — novo membro")
+            print(f"🎟️ Autorole aplicado: {cargo.name} → {member} ({member.guild.name})")
+        except discord.Forbidden:
+            print(f"⚠️ Autorole: sem permissão para dar cargo em '{member.guild.name}'. Verifique a hierarquia e a permissão 'Gerenciar Cargos'.")
+        except Exception as e:
+            print(f"⚠️ Autorole: erro ao aplicar cargo: {e}")
 
 
 bot = MyBot()
