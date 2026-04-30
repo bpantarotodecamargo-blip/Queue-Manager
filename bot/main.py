@@ -166,6 +166,10 @@ def _modo_padrao(ch: str) -> dict:
         "canal_id":  None,
         "botao1":       {"emoji": "🎮",  "label": "Opção 1",     "estilo": "secondary"},
         "botao2":       {"emoji": "🔫",  "label": "Opção 2",     "estilo": "secondary"},
+        "botoes_entrar": [
+            {"id": "1", "emoji": "🎮", "label": "Opção 1", "estilo": "secondary"},
+            {"id": "2", "emoji": "🔫", "label": "Opção 2", "estilo": "secondary"},
+        ],
         "botao_sair":   {"emoji": "❌",  "label": "Sair da fila", "estilo": "danger"},
         "botao_limpar": {"emoji": "🗑️", "label": "Limpar",       "estilo": "secondary"},
         "precos":    [{"id": gerar_id(), "valor": "R$ 1,00", "jogadores": []}],
@@ -331,6 +335,18 @@ def carregar_config() -> dict:
             cfg[bk].setdefault("estilo", default_est)
             cfg[bk].setdefault("emoji", "")
             cfg[bk].setdefault("label", "")
+        # Migra para a lista botoes_entrar (mantém compatibilidade)
+        if "botoes_entrar" not in cfg:
+            cfg["botoes_entrar"] = [
+                {"id": "1", "emoji": cfg["botao1"]["emoji"], "label": cfg["botao1"]["label"], "estilo": cfg["botao1"].get("estilo", "secondary")},
+                {"id": "2", "emoji": cfg["botao2"]["emoji"], "label": cfg["botao2"]["label"], "estilo": cfg["botao2"].get("estilo", "secondary")},
+            ]
+        # Garante que cada item da lista tem id
+        for b in cfg["botoes_entrar"]:
+            b.setdefault("id", gerar_id())
+            b.setdefault("emoji", "")
+            b.setdefault("label", "")
+            b.setdefault("estilo", "secondary")
         cfg.setdefault("precos",    [{"id": gerar_id(), "valor": "R$ 1,00", "jogadores": []}])
         cfg.setdefault("descricao_template", "")
         cfg.setdefault("cor",                "")
@@ -533,16 +549,15 @@ def build_embed_config_modo(ch: str, config: dict) -> discord.Embed:
     cat, m = split_chave(ch)
     cid    = cfg.get("canal_id")
     canal  = f"<#{cid}>" if cid else "`Não definido`"
-    b1, b2 = cfg["botao1"], cfg["botao2"]
+    entrar = cfg.get("botoes_entrar", [])
     precos = cfg.get("precos", [])
 
     embed = discord.Embed(title=f"{EMOJI_CATEGORIA[cat]}  Configuração — {display(ch)}", color=cor_global(config))
     embed.add_field(name="📌 Título",    value=f"`{cfg['titulo']}`",                          inline=True)
     embed.add_field(name="📢 Canal",     value=canal,                                          inline=True)
     embed.add_field(name="\u200b",       value="\u200b",                                       inline=True)
-    embed.add_field(name=f"{b1['emoji']} Botão 1", value=f"`{b1['label']}`",                  inline=True)
-    embed.add_field(name=f"{b2['emoji']} Botão 2", value=f"`{b2['label']}`",                  inline=True)
-    embed.add_field(name="\u200b",       value="\u200b",                                       inline=True)
+    botoes_txt = "\n".join(f"{b.get('emoji','')} `{b.get('label','')}`" for b in entrar) or "*nenhum*"
+    embed.add_field(name=f"🎮 Botões Entrar ({len(entrar)})", value=botoes_txt, inline=False)
 
     txt = "\n".join(f"• `{p['valor']}` — {len(p.get('jogadores',[]))} jogadores" for p in precos) or "*sem preços*"
     embed.add_field(name=f"💰 Preços ({len(precos)} embed{'s' if len(precos)!=1 else ''})", value=txt, inline=False)
@@ -878,41 +893,224 @@ def _parse_btn_input(texto: str, estilo_default: str = "secondary") -> tuple[str
     return e, l, estilo
 
 
-class EditarBotoesModal(Modal):
-    def __init__(self, ch: str, config: dict, painel_msg=None):
-        super().__init__(title=f"Editar Botões — {display(ch)}"[:45])
-        self.ch, self.painel_msg = ch, painel_msg
-        b1 = config[ch]["botao1"]
-        b2 = config[ch]["botao2"]
-        bs = config[ch]["botao_sair"]
-        bl = config[ch]["botao_limpar"]
-        ph = "🎮 Texto | azul/cinza/verde/vermelho"
-        self.b1 = TextInput(label="Botão 1 — Entrar (emoji nome | cor)",
-                            default=_fmt_btn_default(b1), max_length=100, required=True, placeholder=ph)
-        self.b2 = TextInput(label="Botão 2 — Entrar (emoji nome | cor)",
-                            default=_fmt_btn_default(b2), max_length=100, required=True, placeholder=ph)
-        self.bs = TextInput(label="Botão Sair (emoji nome | cor)",
-                            default=_fmt_btn_default(bs), max_length=100, required=True, placeholder="❌ Sair da fila | vermelho")
-        self.bl = TextInput(label="Botão Limpar (emoji nome | cor)",
-                            default=_fmt_btn_default(bl), max_length=100, required=True, placeholder="🗑️ Limpar | cinza")
-        self.add_item(self.b1); self.add_item(self.b2); self.add_item(self.bs); self.add_item(self.bl)
+def _build_embed_botoes(ch: str, config: dict) -> discord.Embed:
+    cfg = config[ch]
+    cat, _ = split_chave(ch)
+    entrar = cfg.get("botoes_entrar", [])
+    bs = cfg.get("botao_sair",   {"emoji": "❌",  "label": "Sair da fila", "estilo": "danger"})
+    bl = cfg.get("botao_limpar", {"emoji": "🗑️", "label": "Limpar",       "estilo": "secondary"})
+    embed = discord.Embed(
+        title=f"{EMOJI_CATEGORIA[cat]}  Botões — {display(ch)}",
+        description=f"Você pode adicionar até **{MAX_BOTOES_ENTRAR}** botões \"Entrar\".",
+        color=cor_global(config),
+    )
+    if entrar:
+        txt = "\n".join(
+            f"`{i+1}.` {b.get('emoji','')} **{b.get('label','—')}** · _{ESTILOS_PT.get(b.get('estilo','secondary'), b.get('estilo','secondary'))}_"
+            for i, b in enumerate(entrar)
+        )
+    else:
+        txt = "*nenhum botão*"
+    embed.add_field(name=f"🎮 Botões Entrar ({len(entrar)}/{MAX_BOTOES_ENTRAR})", value=txt, inline=False)
+    embed.add_field(name=f"{bs.get('emoji','❌')} Sair", value=f"`{bs.get('label','')}` · _{ESTILOS_PT.get(bs.get('estilo','danger'), bs.get('estilo','danger'))}_", inline=True)
+    embed.add_field(name=f"{bl.get('emoji','🗑️')} Limpar", value=f"`{bl.get('label','')}` · _{ESTILOS_PT.get(bl.get('estilo','secondary'), bl.get('estilo','secondary'))}_", inline=True)
+    return embed
+
+
+class BotoesPainelView(View):
+    def __init__(self, ch: str, painel_msg=None, sel_id: str | None = None):
+        super().__init__(timeout=300)
+        self.ch, self.painel_msg, self.sel_id = ch, painel_msg, sel_id
+        config = carregar_config()
+        entrar = config[ch].get("botoes_entrar", [])
+
+        # Normaliza seleção
+        if entrar and not any(b.get("id") == sel_id for b in entrar):
+            sel_id = entrar[0].get("id")
+            self.sel_id = sel_id
+
+        if entrar:
+            opts = []
+            for b in entrar[:25]:
+                emoji_raw = b.get("emoji", "")
+                opts.append(discord.SelectOption(
+                    label=(b.get("label", "") or "—")[:100],
+                    value=b.get("id"),
+                    emoji=to_discord_emoji(emoji_raw) if emoji_raw else None,
+                    default=(b.get("id") == sel_id),
+                ))
+            sel = Select(placeholder="Selecione um botão Entrar", options=opts, row=0)
+
+            async def _sel_cb(interaction: discord.Interaction):
+                self.sel_id = sel.values[0]
+                await interaction.response.edit_message(
+                    embed=_build_embed_botoes(self.ch, carregar_config()),
+                    view=BotoesPainelView(self.ch, self.painel_msg, self.sel_id),
+                )
+            sel.callback = _sel_cb
+            self.add_item(sel)
+
+        # Linha 1 — ações nos botões Entrar
+        self.add_item(_BtnAddEntrar(ch, painel_msg, disabled=len(entrar) >= MAX_BOTOES_ENTRAR))
+        self.add_item(_BtnEditEntrar(ch, painel_msg, sel_id, disabled=not entrar))
+        self.add_item(_BtnRemoveEntrar(ch, painel_msg, sel_id, disabled=len(entrar) <= 1))
+        # Linha 2 — Sair / Limpar / Voltar
+        self.add_item(_BtnEditSair(ch, painel_msg))
+        self.add_item(_BtnEditLimpar(ch, painel_msg))
+        self.add_item(_BtnVoltarBotoes(ch, painel_msg))
+
+
+class EditarBotaoModal(Modal):
+    """Modal genérico pra editar/criar UM botão (entrar/sair/limpar)."""
+    def __init__(self, ch: str, painel_msg, alvo: str, btn_id: str | None = None, criar: bool = False):
+        # alvo: "entrar", "sair", "limpar"
+        self.ch, self.painel_msg, self.alvo, self.btn_id, self.criar = ch, painel_msg, alvo, btn_id, criar
+        titulo = {"entrar": "Adicionar Botão Entrar" if criar else "Editar Botão Entrar",
+                  "sair": "Editar Botão Sair", "limpar": "Editar Botão Limpar"}[alvo]
+        super().__init__(title=titulo[:45])
+
+        cfg = carregar_config()[ch]
+        if alvo == "entrar":
+            if criar:
+                atual = {"emoji": "", "label": "", "estilo": "secondary"}
+            else:
+                atual = next((b for b in cfg.get("botoes_entrar", []) if b.get("id") == btn_id),
+                             {"emoji": "", "label": "", "estilo": "secondary"})
+            est_default = "secondary"
+        elif alvo == "sair":
+            atual = cfg.get("botao_sair", {"emoji": "❌", "label": "Sair da fila", "estilo": "danger"})
+            est_default = "danger"
+        else:  # limpar
+            atual = cfg.get("botao_limpar", {"emoji": "🗑️", "label": "Limpar", "estilo": "secondary"})
+            est_default = "secondary"
+
+        self.emoji = TextInput(label="Emoji",
+                               default=atual.get("emoji", ""), max_length=80, required=False,
+                               placeholder="Ex: 🎮  ou  <:meu_emoji:1234567890>")
+        self.label = TextInput(label="Texto do botão",
+                               default=atual.get("label", ""), max_length=80, required=True,
+                               placeholder="Ex: Entrar na fila")
+        self.estilo = TextInput(label="Cor (azul / cinza / verde / vermelho)",
+                                default=ESTILOS_PT.get(atual.get("estilo", est_default), est_default),
+                                max_length=20, required=True, placeholder="cinza")
+        self.add_item(self.emoji); self.add_item(self.label); self.add_item(self.estilo)
+        self._est_default = est_default
 
     async def on_submit(self, interaction: discord.Interaction):
         config = carregar_config()
-        e1, l1, es1 = _parse_btn_input(self.b1.value, "secondary")
-        e2, l2, es2 = _parse_btn_input(self.b2.value, "secondary")
-        es, ls, ess = _parse_btn_input(self.bs.value, "danger")
-        el, ll, esl = _parse_btn_input(self.bl.value, "secondary")
-        config[self.ch]["botao1"]       = {"emoji": e1, "label": l1, "estilo": es1}
-        config[self.ch]["botao2"]       = {"emoji": e2, "label": l2, "estilo": es2}
-        config[self.ch]["botao_sair"]   = {"emoji": es, "label": ls, "estilo": ess}
-        config[self.ch]["botao_limpar"] = {"emoji": el, "label": ll, "estilo": esl}
+        emoji = self.emoji.value.strip()
+        label = self.label.value.strip()
+        estilo = _parse_estilo(self.estilo.value) or self._est_default
+        novo = {"emoji": emoji, "label": label, "estilo": estilo}
+
+        if self.alvo == "entrar":
+            lista = config[self.ch].setdefault("botoes_entrar", [])
+            if self.criar:
+                if len(lista) >= MAX_BOTOES_ENTRAR:
+                    await interaction.response.send_message(
+                        f"❌ Limite de {MAX_BOTOES_ENTRAR} botões Entrar atingido.", ephemeral=True
+                    )
+                    return
+                novo["id"] = gerar_id()
+                lista.append(novo)
+                sel_id = novo["id"]
+            else:
+                sel_id = self.btn_id
+                for i, b in enumerate(lista):
+                    if b.get("id") == self.btn_id:
+                        novo["id"] = self.btn_id
+                        lista[i] = novo
+                        break
+            # Mantém compat com botao1/botao2
+            if len(lista) >= 1:
+                config[self.ch]["botao1"] = {k: lista[0].get(k, "") for k in ("emoji", "label", "estilo")}
+            if len(lista) >= 2:
+                config[self.ch]["botao2"] = {k: lista[1].get(k, "") for k in ("emoji", "label", "estilo")}
+        elif self.alvo == "sair":
+            config[self.ch]["botao_sair"] = novo
+            sel_id = None
+        else:
+            config[self.ch]["botao_limpar"] = novo
+            sel_id = None
+
         salvar_config(config)
-        cat, _ = split_chave(self.ch)
-        await interaction.response.edit_message(embed=build_embed_config_modo(self.ch, config), view=ModoConfigView(self.ch, cat, self.painel_msg))
+        await interaction.response.edit_message(
+            embed=_build_embed_botoes(self.ch, config),
+            view=BotoesPainelView(self.ch, self.painel_msg, sel_id),
+        )
         await _atualizar_painel(self.painel_msg, config)
-        # Re-publica as views nas mensagens já enviadas
         await _republicar_embeds_modo(self.ch, config)
+
+
+class _BtnAddEntrar(Button):
+    def __init__(self, ch, painel_msg, disabled=False):
+        super().__init__(style=discord.ButtonStyle.success, label="Adicionar Entrar", emoji="➕", row=1, disabled=disabled)
+        self.ch, self.painel_msg = ch, painel_msg
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "entrar", criar=True))
+
+
+class _BtnEditEntrar(Button):
+    def __init__(self, ch, painel_msg, sel_id, disabled=False):
+        super().__init__(style=discord.ButtonStyle.primary, label="Editar selecionado", emoji="✏️", row=1, disabled=disabled)
+        self.ch, self.painel_msg, self.sel_id = ch, painel_msg, sel_id
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "entrar", btn_id=self.sel_id))
+
+
+class _BtnRemoveEntrar(Button):
+    def __init__(self, ch, painel_msg, sel_id, disabled=False):
+        super().__init__(style=discord.ButtonStyle.danger, label="Remover selecionado", emoji="🗑️", row=1, disabled=disabled)
+        self.ch, self.painel_msg, self.sel_id = ch, painel_msg, sel_id
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        lista = config[self.ch].get("botoes_entrar", [])
+        if len(lista) <= 1:
+            await interaction.response.send_message("❌ Tem que ter pelo menos 1 botão Entrar.", ephemeral=True)
+            return
+        config[self.ch]["botoes_entrar"] = [b for b in lista if b.get("id") != self.sel_id]
+        # Mantém compat
+        nova = config[self.ch]["botoes_entrar"]
+        if nova:
+            config[self.ch]["botao1"] = {k: nova[0].get(k, "") for k in ("emoji", "label", "estilo")}
+        if len(nova) >= 2:
+            config[self.ch]["botao2"] = {k: nova[1].get(k, "") for k in ("emoji", "label", "estilo")}
+        salvar_config(config)
+        await interaction.response.edit_message(
+            embed=_build_embed_botoes(self.ch, config),
+            view=BotoesPainelView(self.ch, self.painel_msg, None),
+        )
+        await _atualizar_painel(self.painel_msg, config)
+        await _republicar_embeds_modo(self.ch, config)
+
+
+class _BtnEditSair(Button):
+    def __init__(self, ch, painel_msg):
+        super().__init__(style=discord.ButtonStyle.secondary, label="Editar Sair", emoji="✏️", row=2)
+        self.ch, self.painel_msg = ch, painel_msg
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "sair"))
+
+
+class _BtnEditLimpar(Button):
+    def __init__(self, ch, painel_msg):
+        super().__init__(style=discord.ButtonStyle.secondary, label="Editar Limpar", emoji="✏️", row=2)
+        self.ch, self.painel_msg = ch, painel_msg
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "limpar"))
+
+
+class _BtnVoltarBotoes(Button):
+    def __init__(self, ch, painel_msg):
+        super().__init__(style=discord.ButtonStyle.secondary, label="Voltar", emoji="◀️", row=2)
+        self.ch, self.painel_msg = ch, painel_msg
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        cat, _ = split_chave(self.ch)
+        await interaction.response.edit_message(
+            embed=build_embed_config_modo(self.ch, config),
+            view=ModoConfigView(self.ch, cat, self.painel_msg),
+        )
 
 
 # ──────────────────────────────────────────────
@@ -1212,7 +1410,10 @@ class _BtnEditarBotoes(Button):
 
     async def callback(self, interaction: discord.Interaction):
         config = carregar_config()
-        await interaction.response.send_modal(EditarBotoesModal(self.ch, config, self.painel_msg))
+        await interaction.response.edit_message(
+            embed=_build_embed_botoes(self.ch, config),
+            view=BotoesPainelView(self.ch, self.painel_msg),
+        )
 
 
 class _BtnEditarLayout(Button):
@@ -1771,9 +1972,12 @@ class _BtnPublicar(Button):
 # View: Fila de jogadores
 # ──────────────────────────────────────────────
 
+MAX_BOTOES_ENTRAR = 8
+
+
 class FilaView(View):
     def __init__(self, ch: str, preco_id: str, *_legacy, config: dict | None = None):
-        """Cria a view dos botões da fila lendo todos os 4 botões do config.
+        """Cria a view dos botões da fila lendo do config (N entrar + sair + limpar).
 
         Aceita assinatura legada (ch, preco_id, b1, b2) — os args extras são ignorados
         e o config é recarregado pra garantir que use a customização atual.
@@ -1782,25 +1986,38 @@ class FilaView(View):
         if config is None:
             config = carregar_config()
         cm = config.get(ch, {})
-        b1 = cm.get("botao1",       {"emoji": "🎮",  "label": "Opção 1",     "estilo": "secondary"})
-        b2 = cm.get("botao2",       {"emoji": "🔫",  "label": "Opção 2",     "estilo": "secondary"})
+        entrar = cm.get("botoes_entrar", [])
         bs = cm.get("botao_sair",   {"emoji": "❌",  "label": "Sair da fila", "estilo": "danger"})
         bl = cm.get("botao_limpar", {"emoji": "🗑️", "label": "Limpar",       "estilo": "secondary"})
-        self.add_item(_EntrarBtn(ch, preco_id, 1, b1.get("emoji",""), b1.get("label",""), b1.get("estilo","secondary")))
-        self.add_item(_EntrarBtn(ch, preco_id, 2, b2.get("emoji",""), b2.get("label",""), b2.get("estilo","secondary")))
-        self.add_item(_SairBtn(preco_id, bs.get("emoji","❌"), bs.get("label","Sair da fila"), bs.get("estilo","danger")))
-        self.add_item(_LimparBtn(preco_id, bl.get("emoji","🗑️"), bl.get("label","Limpar"), bl.get("estilo","secondary")))
+
+        # Botões "Entrar" — renderizados em até 4 por linha (Discord permite 5/linha)
+        for i, b in enumerate(entrar[:MAX_BOTOES_ENTRAR]):
+            row = i // 4  # 4 botões por linha pra deixar a 5ª pra Sair/Limpar
+            self.add_item(_EntrarBtn(
+                ch, preco_id, b.get("id", str(i+1)),
+                b.get("emoji",""), b.get("label",""),
+                b.get("estilo","secondary"), row=row,
+            ))
+
+        # Sair e Limpar sempre na última linha disponível
+        n_entrar = min(len(entrar), MAX_BOTOES_ENTRAR)
+        ultima_row = max(0, (n_entrar - 1) // 4) + (1 if n_entrar % 4 == 0 and n_entrar > 0 else 0)
+        if ultima_row > 4:
+            ultima_row = 4
+        self.add_item(_SairBtn(preco_id, bs.get("emoji","❌"), bs.get("label","Sair da fila"), bs.get("estilo","danger"), row=ultima_row))
+        self.add_item(_LimparBtn(preco_id, bl.get("emoji","🗑️"), bl.get("label","Limpar"), bl.get("estilo","secondary"), row=ultima_row))
 
 
 class _EntrarBtn(Button):
-    def __init__(self, ch, preco_id, num, emoji, label, estilo: str = "secondary"):
+    def __init__(self, ch, preco_id, btn_id, emoji, label, estilo: str = "secondary", row: int = 0):
         super().__init__(
             label=f"  {label}" if label else None,
             emoji=to_discord_emoji(emoji) if emoji else None,
             style=ESTILOS_BTN.get(estilo, discord.ButtonStyle.secondary),
-            custom_id=f"entrar{num}_{preco_id}",
+            custom_id=f"entrar_{btn_id}_{preco_id}",
+            row=row,
         )
-        self.ch, self.preco_id = ch, preco_id
+        self.ch, self.preco_id, self.btn_id = ch, preco_id, btn_id
 
     async def callback(self, interaction: discord.Interaction):
         config = carregar_config()
@@ -1837,12 +2054,13 @@ class _EntrarBtn(Button):
 
 
 class _SairBtn(Button):
-    def __init__(self, preco_id, emoji: str = "❌", label: str = "Sair da fila", estilo: str = "danger"):
+    def __init__(self, preco_id, emoji: str = "❌", label: str = "Sair da fila", estilo: str = "danger", row: int = 1):
         super().__init__(
             label=label or None,
             emoji=to_discord_emoji(emoji) if emoji else None,
             style=ESTILOS_BTN.get(estilo, discord.ButtonStyle.danger),
             custom_id=f"sair_{preco_id}",
+            row=row,
         )
         self.preco_id = preco_id
 
@@ -1861,12 +2079,13 @@ class _SairBtn(Button):
 
 
 class _LimparBtn(Button):
-    def __init__(self, preco_id, emoji: str = "🗑️", label: str = "Limpar", estilo: str = "secondary"):
+    def __init__(self, preco_id, emoji: str = "🗑️", label: str = "Limpar", estilo: str = "secondary", row: int = 1):
         super().__init__(
             label=label or None,
             emoji=to_discord_emoji(emoji) if emoji else None,
             style=ESTILOS_BTN.get(estilo, discord.ButtonStyle.secondary),
             custom_id=f"limpar_{preco_id}",
+            row=row,
         )
         self.preco_id = preco_id
 

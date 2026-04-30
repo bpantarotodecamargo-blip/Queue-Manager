@@ -245,11 +245,13 @@
     "canal_id": 1497999469445386421,
     "botao1": {
       "emoji": "<:geloff:1497750981172134019>",
-      "label": "Gelo Normal"
+      "label": "Gelo Normal",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "<:geloff:1497750981172134019>",
-      "label": "Gelo Infinito"
+      "label": "Gelo Infinito",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -314,7 +316,17 @@
       }
     ],
     "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
-    "cor": "#FFDF00"
+    "cor": "#FFDF00",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Mobile_2v2": {
     "titulo": "Mobile 2v2",
@@ -323,11 +335,13 @@
     "canal_id": 1495091001314771025,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -337,7 +351,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Mobile_3v3": {
     "titulo": "Mobile 3v3",
@@ -346,11 +370,13 @@
     "canal_id": 1495091010030801086,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -362,7 +388,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Mobile_4v4": {
     "titulo": "Mobile 4v4",
@@ -371,11 +407,13 @@
     "canal_id": 1495091020793381006,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -387,7 +425,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Emulador_1v1": {
     "titulo": "Emulador 1v1",
@@ -396,11 +444,13 @@
     "canal_id": 1490011049213169940,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -410,7 +460,17 @@
       }
     ],
     "descricao_template": "**Filas Emulador [[modo_jogo]]**\n**Valor**: \n[[valor_partida]]\n**Jogadores**:\n[[jogadores_fila]]",
-    "cor": "#FFDF00"
+    "cor": "#FFDF00",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Emulador_2v2": {
     "titulo": "Emulador 2v2",
@@ -419,11 +479,13 @@
     "canal_id": 1495091000031445315,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -433,7 +495,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Emulador_3v3": {
     "titulo": "Emulador 3v3",
@@ -442,11 +514,13 @@
     "canal_id": 1495091000031445315,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -456,7 +530,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Emulador_4v4": {
     "titulo": "Emulador 4v4",
@@ -465,11 +549,13 @@
     "canal_id": 1495091000031445315,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -479,7 +565,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Misto_2v2": {
     "titulo": "Misto 2v2",
@@ -488,11 +584,13 @@
     "canal_id": 1495091000031445315,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -502,7 +600,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Misto_3v3": {
     "titulo": "Misto 3v3",
@@ -511,11 +619,13 @@
     "canal_id": 1495091000031445315,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -525,7 +635,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Misto_4v4": {
     "titulo": "Misto 4v4",
@@ -534,11 +654,13 @@
     "canal_id": 1495091000031445315,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -548,7 +670,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Tático_1v1": {
     "titulo": "Tático 1v1",
@@ -557,11 +689,13 @@
     "canal_id": 1495091000031445315,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -571,7 +705,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Tático_2v2": {
     "titulo": "Tático 2v2",
@@ -580,11 +724,13 @@
     "canal_id": 1495091000031445315,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -594,7 +740,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Tático_3v3": {
     "titulo": "Tático 3v3",
@@ -603,11 +759,13 @@
     "canal_id": 1495091000031445315,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -617,7 +775,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "Tático_4v4": {
     "titulo": "Tático 4v4",
@@ -626,11 +794,13 @@
     "canal_id": 1495091000031445315,
     "botao1": {
       "emoji": "🎮",
-      "label": "Opção 1"
+      "label": "Opção 1",
+      "estilo": "secondary"
     },
     "botao2": {
       "emoji": "🔫",
-      "label": "Opção 2"
+      "label": "Opção 2",
+      "estilo": "secondary"
     },
     "precos": [
       {
@@ -640,7 +810,17 @@
       }
     ],
     "descricao_template": "",
-    "cor": ""
+    "cor": "",
+    "botao_sair": {
+      "emoji": "❌",
+      "label": "Sair da fila",
+      "estilo": "danger"
+    },
+    "botao_limpar": {
+      "emoji": "🗑️",
+      "label": "Limpar",
+      "estilo": "secondary"
+    }
   },
   "aparencias": {
     "1489942012940648510": {
