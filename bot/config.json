@@ -215,6 +215,16 @@
         "emoji": "◀️",
         "label": "Voltar"
       }
+    },
+    "tickets": {
+      "embed": {
+        "titulo": "🎫 Central de Tickets",
+        "descricao": "Precisa de ajuda? Clique num dos botões abaixo pra abrir um ticket.",
+        "thumbnail": "",
+        "banner": "",
+        "cor": ""
+      },
+      "botoes": []
     }
   },
   "Mobile_1v1": {

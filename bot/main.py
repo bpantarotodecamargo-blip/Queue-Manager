@@ -1664,7 +1664,9 @@ class ConfirmarPartidaView(View):
         self.cargo_mediador_id      = cargo_mediador_id
         self.config_ref             = config_ref
         self.finalizado             = False
+        self.cancelado              = False
         self.add_item(_BtnConfirmar(self))
+        self.add_item(_BtnCancelarAposta(self))
 
     async def _atualizar_embed(self, interaction):
         await interaction.response.edit_message(embed=build_embed_confirmar(self.ch, self.preco, self.confirmados, self.jogadores, self.config_ref), view=self)
@@ -1693,7 +1695,7 @@ class ConfirmarPartidaView(View):
             await self.canal_partida.send("✅ **Todos os jogadores confirmaram!**")
 
     async def on_timeout(self):
-        if self.finalizado:
+        if self.finalizado or self.cancelado:
             return
         nao = [uid for uid in self.jogadores if uid not in self.confirmados]
 
@@ -1733,6 +1735,66 @@ class _BtnConfirmar(Button):
             await self.pv._todos_confirmaram(interaction)
         else:
             await self.pv._atualizar_embed(interaction)
+
+
+class _BtnCancelarAposta(Button):
+    def __init__(self, pv):
+        super().__init__(label="❌  Cancelar Aposta", style=discord.ButtonStyle.danger)
+        self.pv = pv
+
+    async def callback(self, interaction: discord.Interaction):
+        uid = str(interaction.user.id)
+
+        # Permissões: jogador da partida, ADM ou mediador podem cancelar
+        eh_jogador  = uid in self.pv.jogadores
+        eh_mediador = self.pv.mediador_uid and uid == str(self.pv.mediador_uid)
+        eh_adm      = False
+        if self.pv.cargo_adm_id and isinstance(interaction.user, discord.Member):
+            eh_adm = any(r.id == self.pv.cargo_adm_id for r in interaction.user.roles)
+        if self.pv.cargo_mediador_id and isinstance(interaction.user, discord.Member):
+            if any(r.id == self.pv.cargo_mediador_id for r in interaction.user.roles):
+                eh_mediador = True
+
+        if not (eh_jogador or eh_mediador or eh_adm):
+            await interaction.response.send_message("⚠️ Você não pode cancelar esta partida.", ephemeral=True); return
+
+        if self.pv.cancelado or self.pv.finalizado:
+            await interaction.response.send_message("⚠️ Esta partida já foi encerrada.", ephemeral=True); return
+
+        self.pv.cancelado  = True
+        self.pv.finalizado = True
+        self.pv.stop()
+
+        # Devolve o mediador à fila se ele tinha sido puxado
+        if self.pv.mediador_uid:
+            try:
+                cfg = carregar_config()
+                fila = cfg["global"].setdefault("fila_mediador", [])
+                if self.pv.mediador_uid not in fila:
+                    fila.insert(0, self.pv.mediador_uid)
+                    salvar_config(cfg)
+                await _atualizar_painel_mediador(None, cfg)
+            except Exception:
+                pass
+
+        embed = discord.Embed(
+            title="❌ Aposta Cancelada",
+            description=f"Cancelada por <@{interaction.user.id}>.\n\nO canal será fechado em 15 segundos.",
+            color=discord.Color.red(),
+        )
+        try:
+            await interaction.response.edit_message(embed=embed, view=None)
+        except Exception:
+            try:
+                await interaction.response.send_message(embed=embed)
+            except Exception:
+                pass
+
+        try:
+            await asyncio.sleep(15)
+            await self.pv.canal_partida.delete(reason="Aposta cancelada por usuário")
+        except Exception:
+            pass
 
 
 async def _fila_completa(interaction: discord.Interaction, ch: str, preco: dict, jogadores: list, config: dict):
