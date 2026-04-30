@@ -190,6 +190,20 @@ def carregar_config() -> dict:
     g.setdefault("cargo_mediador_id",  None)   # cargo dos mediadores
     g.setdefault("cargo_autorole_id",  None)   # cargo dado automaticamente a novos membros
     g.setdefault("categoria_id",       None)
+    g.setdefault("logs", {
+        "iniciadas":     None,   # logs-iniciadas — quando uma partida começa
+        "confirmadas":   None,   # logs-confirmadas — quando todos confirmam
+        "cancelada":     None,   # logs-cancelada — quando alguém cancela
+        "finalizadas":   None,   # logs-finalizadas — quando /vencedor é usado
+        "mediador":      None,   # logs-mediador — entrar/sair/puxar mediador
+        "ticket":        None,   # logs-ticket — abertura/fechamento de tickets
+        "vitorias_ws":   None,   # logs-vitorias-ws — vencedores de partida do streamer
+        "saiu_servidor": None,   # saiu-do-servidor — quando alguém sai do servidor
+    })
+    _logs = g["logs"]
+    for k in ("iniciadas", "confirmadas", "cancelada", "finalizadas",
+              "mediador", "ticket", "vitorias_ws", "saiu_servidor"):
+        _logs.setdefault(k, None)
     g.setdefault("filas_ativas",       True)
     g.setdefault("embed_global", {
         "banner":    "",
@@ -322,6 +336,57 @@ def carregar_config() -> dict:
 def salvar_config(config: dict):
     with open(CONFIG_FILE, "w", encoding="utf-8") as fp:
         json.dump(config, fp, ensure_ascii=False, indent=2)
+
+
+# ──────────────────────────────────────────────
+# Sistema de Logs
+# ──────────────────────────────────────────────
+
+LOG_TIPOS = [
+    ("iniciadas",     "📥  Logs Iniciadas",     "Quando uma partida começa (canal criado).",        0x3498DB),
+    ("confirmadas",   "✅  Logs Confirmadas",   "Quando todos os jogadores confirmam presença.",     0x2ECC71),
+    ("cancelada",     "❌  Logs Cancelada",     "Quando uma aposta é cancelada por alguém.",         0xE74C3C),
+    ("finalizadas",   "🏆  Logs Finalizadas",   "Quando o vencedor é definido com /vencedor.",       0xF1C40F),
+    ("mediador",      "🤝  Logs Mediador",      "Mediadores entrando/saindo da fila ou sendo puxados.", 0x9B59B6),
+    ("ticket",        "🎫  Logs Ticket",        "Tickets abertos e fechados.",                        0x1ABC9C),
+    ("vitorias_ws",   "🎬  Logs Vitórias WS",   "Vencedores de partidas do streamer.",               0xE91E63),
+    ("saiu_servidor", "👋  Saiu do Servidor",   "Quando um membro sai do servidor.",                  0x95A5A6),
+]
+
+LOG_LABEL = {k: l for k, l, _, _ in LOG_TIPOS}
+LOG_COR   = {k: c for k, _, _, c in LOG_TIPOS}
+
+
+def _log_canal(guild: discord.Guild, tipo: str, config: dict | None = None):
+    if not guild:
+        return None
+    if config is None:
+        config = carregar_config()
+    cid = config.get("global", {}).get("logs", {}).get(tipo)
+    if not cid:
+        return None
+    return guild.get_channel(cid)
+
+
+async def _send_log(guild: discord.Guild | None, tipo: str, embed: discord.Embed | None = None,
+                    content: str | None = None, config: dict | None = None):
+    """Envia uma mensagem ao canal de log configurado para esse tipo, se houver."""
+    try:
+        canal = _log_canal(guild, tipo, config)
+        if not canal:
+            return
+        await canal.send(content=content, embed=embed)
+    except Exception as e:
+        print(f"⚠️ Falha ao enviar log [{tipo}]: {e}")
+
+
+def _log_embed(tipo: str, titulo: str, descricao: str = "", autor: discord.abc.User | None = None) -> discord.Embed:
+    embed = discord.Embed(title=titulo, description=descricao, color=LOG_COR.get(tipo, 0x2F3136))
+    embed.timestamp = discord.utils.utcnow()
+    if autor:
+        embed.set_author(name=str(autor), icon_url=autor.display_avatar.url if autor.display_avatar else None)
+        embed.set_footer(text=f"ID: {autor.id}")
+    return embed
 
 
 def encontrar_preco(config: dict, preco_id: str):
@@ -1131,6 +1196,7 @@ class ConfigGeralView(View):
         self.add_item(_CanalSelectCategoria(painel_msg))
         self.add_item(_BtnVoltarPainelGeral(painel_msg))
         self.add_item(_BtnAbrirAutorole(painel_msg))
+        self.add_item(_BtnAbrirLogs(painel_msg))
 
 
 class ConfigAutoroleView(View):
@@ -1199,6 +1265,127 @@ class _BtnVoltarConfigGeral(Button):
     async def callback(self, interaction: discord.Interaction):
         config = carregar_config()
         await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
+
+
+# ──────────────────────────────────────────────
+# View: Configuração de Logs (com paginação)
+# ──────────────────────────────────────────────
+
+LOGS_POR_PAGINA = 4
+
+
+def build_embed_config_logs(config: dict, pagina: int = 0) -> discord.Embed:
+    g = config.get("global", {})
+    logs = g.get("logs", {})
+    embed = discord.Embed(
+        title="📜  Sistema de Logs",
+        description=(
+            f"Configure um canal para cada tipo de evento.\n"
+            f"Para **desativar** um log, abra o seletor e clique fora sem escolher.\n\n"
+            f"**Página {pagina + 1}/{(len(LOG_TIPOS) + LOGS_POR_PAGINA - 1) // LOGS_POR_PAGINA}**"
+        ),
+        color=cor_global(config),
+    )
+    inicio = pagina * LOGS_POR_PAGINA
+    fim    = inicio + LOGS_POR_PAGINA
+    for chave, label, descricao, _ in LOG_TIPOS[inicio:fim]:
+        cid = logs.get(chave)
+        canal_txt = f"<#{cid}>" if cid else "`Não configurado`"
+        embed.add_field(name=label, value=f"{descricao}\n→ {canal_txt}", inline=False)
+    return embed
+
+
+class ConfigLogsView(View):
+    def __init__(self, painel_msg=None, pagina: int = 0):
+        super().__init__(timeout=300)
+        self.painel_msg = painel_msg
+        self.pagina = pagina
+        inicio = pagina * LOGS_POR_PAGINA
+        fim    = inicio + LOGS_POR_PAGINA
+        for i, (chave, label, _, _) in enumerate(LOG_TIPOS[inicio:fim]):
+            self.add_item(_CanalSelectLog(painel_msg, chave, label, row=i, pagina=pagina))
+        # Linha de navegação (row 4)
+        total_pgs = (len(LOG_TIPOS) + LOGS_POR_PAGINA - 1) // LOGS_POR_PAGINA
+        if pagina > 0:
+            self.add_item(_BtnLogsPaginaAnterior(painel_msg, pagina))
+        if pagina < total_pgs - 1:
+            self.add_item(_BtnLogsProximaPagina(painel_msg, pagina))
+        self.add_item(_BtnVoltarConfigGeralFromLogs(painel_msg))
+
+
+class _CanalSelectLog(ChannelSelect):
+    def __init__(self, painel_msg, chave: str, label: str, row: int, pagina: int):
+        super().__init__(
+            placeholder=f"{label} — escolha o canal…",
+            channel_types=[discord.ChannelType.text],
+            min_values=0, max_values=1, row=row,
+        )
+        self.painel_msg = painel_msg
+        self.chave      = chave
+        self.pagina     = pagina
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        config["global"].setdefault("logs", {})[self.chave] = self.values[0].id if self.values else None
+        salvar_config(config)
+        await interaction.response.edit_message(
+            embed=build_embed_config_logs(config, self.pagina),
+            view=ConfigLogsView(self.painel_msg, self.pagina),
+        )
+        if self.values:
+            await interaction.followup.send(f"✅ Log **{LOG_LABEL[self.chave]}** → <#{self.values[0].id}>", ephemeral=True)
+        else:
+            await interaction.followup.send(f"✅ Log **{LOG_LABEL[self.chave]}** desativado.", ephemeral=True)
+
+
+class _BtnLogsProximaPagina(Button):
+    def __init__(self, painel_msg, pagina: int):
+        super().__init__(label="Próxima  ▶", style=discord.ButtonStyle.primary, row=4)
+        self.painel_msg = painel_msg
+        self.pagina     = pagina
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        nova = self.pagina + 1
+        await interaction.response.edit_message(
+            embed=build_embed_config_logs(config, nova),
+            view=ConfigLogsView(self.painel_msg, nova),
+        )
+
+
+class _BtnLogsPaginaAnterior(Button):
+    def __init__(self, painel_msg, pagina: int):
+        super().__init__(label="◀  Anterior", style=discord.ButtonStyle.primary, row=4)
+        self.painel_msg = painel_msg
+        self.pagina     = pagina
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        nova = self.pagina - 1
+        await interaction.response.edit_message(
+            embed=build_embed_config_logs(config, nova),
+            view=ConfigLogsView(self.painel_msg, nova),
+        )
+
+
+class _BtnVoltarConfigGeralFromLogs(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="◀️  Voltar", style=discord.ButtonStyle.secondary, row=4)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
+
+
+class _BtnAbrirLogs(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="📜  Logs", style=discord.ButtonStyle.primary, row=4)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.edit_message(embed=build_embed_config_logs(config, 0), view=ConfigLogsView(self.painel_msg, 0))
 
 
 class _RoleSelectMax(RoleSelect):
@@ -1667,6 +1854,11 @@ class _BtnEntrarFilaMediador(Button):
         salvar_config(config)
         await _atualizar_painel_mediador(self.painel_med_msg, config)
         await interaction.response.send_message(f"✅ Você entrou na fila de mediadores! Posição: **#{len(fila)}**", ephemeral=True)
+        # ── LOG: mediador entrou ──
+        emb = _log_embed("mediador", "🤝  Mediador Entrou na Fila",
+                         f"<@{uid}> entrou na fila de mediadores.\n**Posição:** #{len(fila)}",
+                         autor=interaction.user)
+        await _send_log(interaction.guild, "mediador", embed=emb, config=config)
 
 
 class _BtnSairFilaMediador(Button):
@@ -1684,6 +1876,11 @@ class _BtnSairFilaMediador(Button):
         salvar_config(config)
         await _atualizar_painel_mediador(self.painel_med_msg, config)
         await interaction.response.send_message("✅ Você saiu da fila de mediadores.", ephemeral=True)
+        # ── LOG: mediador saiu ──
+        emb = _log_embed("mediador", "🤝  Mediador Saiu da Fila",
+                         f"<@{uid}> saiu da fila de mediadores.",
+                         autor=interaction.user)
+        await _send_log(interaction.guild, "mediador", embed=emb, config=config)
 
 
 class _BtnLimparFilaMediador(Button):
@@ -1765,6 +1962,23 @@ class ConfirmarPartidaView(View):
                 await self.canal_partida.send(f"✅ **Todos confirmaram!**\n{cargo.mention} — partida `{self.preco['valor']}` ({display(self.ch)}) pronta! 🏆")
         else:
             await self.canal_partida.send("✅ **Todos os jogadores confirmaram!**")
+
+        # ── LOG: confirmadas ───────────────────────────────────
+        try:
+            cat_l, modo_l = split_chave(self.ch)
+            log_emb = _log_embed(
+                "confirmadas",
+                "✅  Partida Confirmada",
+                f"**Categoria:** {EMOJI_CATEGORIA.get(cat_l,'')} {cat_l}\n"
+                f"**Modo:** {EMOJI_MODO.get(modo_l,'')} {modo_l}\n"
+                f"**Valor:** {self.preco['valor']}\n"
+                f"**Canal:** {self.canal_partida.mention}\n"
+                f"**Mediador:** " + (f"<@{self.mediador_uid}>" if self.mediador_uid else "`Sem mediador`") + "\n"
+                f"**Jogadores:**\n" + "\n".join(f"• <@{u}>" for u in self.jogadores),
+            )
+            await _send_log(interaction.guild, "confirmadas", embed=log_emb)
+        except Exception as e:
+            print(f"⚠️ log confirmadas: {e}")
 
     async def on_timeout(self):
         if self.finalizado or self.cancelado:
@@ -1862,6 +2076,25 @@ class _BtnCancelarAposta(Button):
             except Exception:
                 pass
 
+        # ── LOG: cancelada ─────────────────────────────────────
+        try:
+            cat_l, modo_l = split_chave(self.pv.ch)
+            log_emb = _log_embed(
+                "cancelada",
+                "❌  Aposta Cancelada",
+                f"**Cancelada por:** <@{interaction.user.id}>\n"
+                f"**Categoria:** {EMOJI_CATEGORIA.get(cat_l,'')} {cat_l}\n"
+                f"**Modo:** {EMOJI_MODO.get(modo_l,'')} {modo_l}\n"
+                f"**Valor:** {self.pv.preco['valor']}\n"
+                f"**Canal:** {self.pv.canal_partida.mention}\n"
+                f"**Mediador:** " + (f"<@{self.pv.mediador_uid}>" if self.pv.mediador_uid else "`Sem mediador`") + "\n"
+                f"**Jogadores:**\n" + "\n".join(f"• <@{u}>" for u in self.pv.jogadores),
+                autor=interaction.user,
+            )
+            await _send_log(interaction.guild, "cancelada", embed=log_emb)
+        except Exception as e:
+            print(f"⚠️ log cancelada: {e}")
+
         try:
             await asyncio.sleep(15)
             await self.pv.canal_partida.delete(reason="Aposta cancelada por usuário")
@@ -1917,6 +2150,29 @@ async def _fila_completa(interaction: discord.Interaction, ch: str, preco: dict,
         cargo = guild.get_role(cargo_id)
         if cargo:
             await canal.send(f"⚠️ {cargo.mention} — Nova partida `{preco['valor']}` ({display(ch)}) aguardando confirmação!")
+
+    # ── LOG: partida iniciada ───────────────────────────────
+    log_emb = _log_embed(
+        "iniciadas",
+        "📥  Partida Iniciada",
+        f"**Categoria:** {EMOJI_CATEGORIA.get(cat,'')} {cat}\n"
+        f"**Modo:** {EMOJI_MODO.get(modo,'')} {modo}\n"
+        f"**Valor:** {preco['valor']}\n"
+        f"**Canal:** {canal.mention}\n"
+        f"**Jogadores:**\n" + "\n".join(f"• <@{u}>" for u in jogadores),
+    )
+    await _send_log(guild, "iniciadas", embed=log_emb, config=config)
+
+    # ── LOG: mediador puxado ────────────────────────────────
+    if mediador_uid:
+        med_emb = _log_embed(
+            "mediador",
+            "🤝  Mediador Puxado",
+            f"**Mediador:** <@{mediador_uid}>\n"
+            f"**Partida:** {canal.mention}\n"
+            f"**Valor:** {preco['valor']} — {display(ch)}",
+        )
+        await _send_log(guild, "mediador", embed=med_emb, config=config)
 
 
 # ──────────────────────────────────────────────
@@ -2861,6 +3117,28 @@ class MyBot(discord.Client):
         except Exception as e:
             print(f"⚠️ Autorole: erro ao aplicar cargo: {e}")
 
+    async def on_member_remove(self, member: discord.Member):
+        # Log: alguém saiu (ou foi removido) do servidor
+        try:
+            criado_em = discord.utils.format_dt(member.created_at, style="R") if member.created_at else "—"
+            entrou_em = discord.utils.format_dt(member.joined_at, style="R") if member.joined_at else "—"
+            cargos = [r.mention for r in getattr(member, "roles", []) if r.name != "@everyone"]
+            cargos_txt = ", ".join(cargos) if cargos else "`Nenhum`"
+            emb = _log_embed(
+                "saiu_servidor",
+                "👋  Membro Saiu do Servidor",
+                f"**Usuário:** {member.mention} (`{member}`)\n"
+                f"**Entrou no servidor:** {entrou_em}\n"
+                f"**Conta criada:** {criado_em}\n"
+                f"**Cargos:** {cargos_txt}",
+                autor=member,
+            )
+            if member.display_avatar:
+                emb.set_thumbnail(url=member.display_avatar.url)
+            await _send_log(member.guild, "saiu_servidor", embed=emb)
+        except Exception as e:
+            print(f"⚠️ log saiu_servidor: {e}")
+
 
 bot = MyBot()
 
@@ -3459,6 +3737,17 @@ class _BtnAbrirTicket(Button):
 
         await interaction.followup.send(f"✅ Seu ticket foi aberto: {topico.mention}", ephemeral=True)
 
+        # ── LOG: ticket aberto ──
+        log_emb = _log_embed(
+            "ticket",
+            "🎫  Ticket Aberto",
+            f"**Usuário:** {interaction.user.mention}\n"
+            f"**Tipo:** {btn.get('label','—')}\n"
+            f"**Tópico:** {topico.mention}",
+            autor=interaction.user,
+        )
+        await _send_log(interaction.guild, "ticket", embed=log_emb)
+
 
 def _registrar_view_tickets():
     """Re-registra a view pública de tickets pra que novos botões funcionem em mensagens já publicadas."""
@@ -3478,6 +3767,19 @@ class _FecharTicketView(View):
         if not isinstance(canal, discord.Thread):
             await interaction.response.send_message("❌ Esse botão só funciona dentro de um ticket.", ephemeral=True); return
         await interaction.response.send_message(f"🔒 Ticket fechado por {interaction.user.mention}. Arquivando em 5s…")
+        # ── LOG: ticket fechado ──
+        try:
+            log_emb = _log_embed(
+                "ticket",
+                "🎫  Ticket Fechado",
+                f"**Fechado por:** {interaction.user.mention}\n"
+                f"**Tópico:** {canal.mention}\n"
+                f"**Nome:** `{canal.name}`",
+                autor=interaction.user,
+            )
+            await _send_log(interaction.guild, "ticket", embed=log_emb)
+        except Exception as e:
+            print(f"⚠️ log ticket: {e}")
         await asyncio.sleep(5)
         try:
             await canal.edit(archived=True, locked=True)
@@ -3690,11 +3992,13 @@ async def vencedor_cmd(interaction: discord.Interaction, vencedor: discord.Membe
         ); return
 
     canal = interaction.channel
-    if not isinstance(canal, discord.TextChannel) or not canal.name.startswith("partida-"):
+    if not isinstance(canal, discord.TextChannel) or not (canal.name.startswith("partida-") or canal.name.startswith("streamer-")):
         await interaction.response.send_message(
-            "❌ Use este comando **dentro de um canal de partida** (canais que começam com `partida-`).",
+            "❌ Use este comando **dentro de um canal de partida** (`partida-…` ou `streamer-…`).",
             ephemeral=True,
         ); return
+
+    eh_streamer = canal.name.startswith("streamer-")
 
     embed = discord.Embed(
         title="🏆  Vencedor da Partida!",
@@ -3712,6 +4016,33 @@ async def vencedor_cmd(interaction: discord.Interaction, vencedor: discord.Membe
         embed.set_image(url=banner)
 
     await interaction.response.send_message(embed=embed)
+
+    # ── LOG: finalizada (sempre) e vitorias_ws (se foi partida do streamer) ──
+    try:
+        log_emb = _log_embed(
+            "finalizadas",
+            "🏆  Partida Finalizada",
+            f"**Vencedor:** {vencedor.mention} (`{vencedor.display_name}`)\n"
+            f"**Canal:** `{canal.name}`\n"
+            f"**Definido por:** {interaction.user.mention}",
+            autor=interaction.user,
+        )
+        log_emb.set_thumbnail(url=vencedor.display_avatar.url)
+        await _send_log(interaction.guild, "finalizadas", embed=log_emb)
+
+        if eh_streamer:
+            ws_emb = _log_embed(
+                "vitorias_ws",
+                "🎬  Vitória contra o Streamer!",
+                f"**Vencedor:** {vencedor.mention} (`{vencedor.display_name}`)\n"
+                f"**Canal:** `{canal.name}`\n"
+                f"**Definido por:** {interaction.user.mention}",
+                autor=interaction.user,
+            )
+            ws_emb.set_thumbnail(url=vencedor.display_avatar.url)
+            await _send_log(interaction.guild, "vitorias_ws", embed=ws_emb)
+    except Exception as e:
+        print(f"⚠️ log finalizadas/ws: {e}")
 
     await asyncio.sleep(10)
     try:
