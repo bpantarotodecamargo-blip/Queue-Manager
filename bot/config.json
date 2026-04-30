@@ -225,20 +225,31 @@
         "cor": ""
       },
       "botoes": []
+    },
+    "cargo_autorole_id": null,
+    "logs": {
+      "iniciadas": null,
+      "confirmadas": null,
+      "cancelada": null,
+      "finalizadas": null,
+      "mediador": null,
+      "ticket": null,
+      "vitorias_ws": null,
+      "saiu_servidor": null
     }
   },
   "Mobile_1v1": {
     "titulo": "Mobile 1v1",
-    "banner": "",
-    "thumbnail": "",
-    "canal_id": 1494450378471768267,
+    "banner": "https://cdn.discordapp.com/attachments/1498005985523007580/1499517378483191808/ChatGPT_Image_30_de_abr._de_2026_18_05_58.png?ex=69f515e2&is=69f3c462&hm=3c469d0d587552c751480286f5b880a0a95b18dc30a44f44a37579dc089c6211&",
+    "thumbnail": "https://cdn.discordapp.com/attachments/1498005985523007580/1498006068390006948/ChatGPT_Image_26_de_abr._de_2026_13_42_25.png?ex=69f4dc5e&is=69f38ade&hm=2dcb6a1075c75f6fe7d760c64059a6e515fdf2fc1dc98086ceeb0a127e8188e1&",
+    "canal_id": 1497999469445386421,
     "botao1": {
-      "emoji": "🎮",
-      "label": "Opção 1"
+      "emoji": "<:geloff:1497750981172134019>",
+      "label": "Gelo Normal"
     },
     "botao2": {
-      "emoji": "🔫",
-      "label": "Opção 2"
+      "emoji": "<:geloff:1497750981172134019>",
+      "label": "Gelo Infinito"
     },
     "precos": [
       {
@@ -254,6 +265,26 @@
       {
         "id": "e4051c8d1c",
         "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "e3cf1cfccd",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "677bbeca53",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "dc93220537",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "3a688ac702",
+        "valor": "R$ 4,00",
         "jogadores": []
       }
     ],
@@ -586,5 +617,9 @@
     "descricao_template": "",
     "cor": ""
   },
-  "aparencias": {}
+  "aparencias": {
+    "1489942012940648510": {
+      "bio": "BOT OFICIAL DA TITAN"
+    }
+  }
 }

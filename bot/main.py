@@ -872,24 +872,112 @@ class EditarBotoesModal(Modal):
         await _atualizar_painel(self.painel_msg, config)
 
 
+# ──────────────────────────────────────────────
+# Helpers de parsing/ordenação de preços
+# ──────────────────────────────────────────────
+
+def _parse_valor_preco(texto: str) -> float | None:
+    """Extrai o valor numérico de um texto. Retorna None se não for um preço válido.
+
+    Aceita formatos como: "R$ 1,00", "1.50", "10,00", "R$1", "5", "R$  100,50"
+    """
+    if not texto:
+        return None
+    s = texto.strip()
+    # Remove tudo que não for dígito, vírgula, ponto ou sinal
+    s = re.sub(r"[^\d,.\-]", "", s)
+    if not s:
+        return None
+    # Trata o caso "1.234,56" (vírgula decimal, ponto milhar) → "1234.56"
+    if "," in s and "." in s:
+        if s.rfind(",") > s.rfind("."):
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            s = s.replace(",", "")
+    elif "," in s:
+        s = s.replace(",", ".")
+    try:
+        v = float(s)
+        return v if v >= 0 else None
+    except ValueError:
+        return None
+
+
+def _formatar_valor_preco(valor: str) -> str:
+    """Normaliza a apresentação de um preço para o formato 'R$ X,YZ'."""
+    n = _parse_valor_preco(valor)
+    if n is None:
+        return valor.strip()
+    if n == int(n):
+        return f"R$ {int(n):,}".replace(",", ".") + ",00"
+    return f"R$ {n:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _ordenar_precos(precos: list) -> list:
+    """Ordena a lista de preços do menor pro maior. Inválidos vão pro fim."""
+    def _key(p):
+        v = _parse_valor_preco(p.get("valor", ""))
+        return (1, 0.0) if v is None else (0, v)
+    return sorted(precos, key=_key)
+
+
 class AdicionarPrecoModal(Modal):
     def __init__(self, ch: str, painel_msg=None):
-        super().__init__(title=f"Adicionar Preço — {display(ch)}"[:45])
+        super().__init__(title=f"Adicionar Preços — {display(ch)}"[:45])
         self.ch, self.painel_msg = ch, painel_msg
-        self.valor = TextInput(label="Valor (ex: R$ 1,00)", placeholder="R$ 1,00", max_length=30, required=True)
+        self.valor = TextInput(
+            label="Valores (um por linha)",
+            placeholder="R$ 1,00\nR$ 2,50\nR$ 10,00",
+            style=discord.TextStyle.paragraph,
+            max_length=500, required=True,
+        )
         self.add_item(self.valor)
 
     async def on_submit(self, interaction: discord.Interaction):
         config = carregar_config()
-        novo = {"id": gerar_id(), "valor": self.valor.value.strip(), "jogadores": []}
-        config[self.ch]["precos"].append(novo)
+        linhas = [l.strip() for l in self.valor.value.splitlines() if l.strip()]
+        if not linhas:
+            await interaction.response.send_message("❌ Você não digitou nenhum preço.", ephemeral=True); return
+
+        validos: list[tuple[str, float]] = []
+        invalidos: list[str] = []
+        for ln in linhas:
+            v = _parse_valor_preco(ln)
+            if v is None:
+                invalidos.append(ln)
+            else:
+                validos.append((_formatar_valor_preco(ln), v))
+
+        if not validos:
+            msg = "❌ **Nenhum preço válido foi reconhecido.**\n"
+            msg += "\n".join(f"• `{x}`" for x in invalidos[:10])
+            msg += "\n\n**Exemplos válidos:** `R$ 1,00`, `2.50`, `10`"
+            await interaction.response.send_message(msg, ephemeral=True); return
+
+        novos_ids = []
+        for valor_fmt, _ in validos:
+            novo = {"id": gerar_id(), "valor": valor_fmt, "jogadores": []}
+            config[self.ch]["precos"].append(novo)
+            novos_ids.append(novo["id"])
+
+        # Ordena do menor pro maior
+        config[self.ch]["precos"] = _ordenar_precos(config[self.ch]["precos"])
         salvar_config(config)
+
         b1 = config[self.ch]["botao1"]; b2 = config[self.ch]["botao2"]
-        bot.add_view(FilaView(self.ch, novo["id"], b1, b2))
+        for nid in novos_ids:
+            bot.add_view(FilaView(self.ch, nid, b1, b2))
+
         view = GerenciarPrecosView(self.ch, self.painel_msg)
-        view.selected_id = novo["id"]
-        await interaction.response.edit_message(embed=build_embed_gerenciar_precos(self.ch, config, novo["id"]), view=view)
+        view.selected_id = novos_ids[-1]
+        await interaction.response.edit_message(embed=build_embed_gerenciar_precos(self.ch, config, novos_ids[-1]), view=view)
         await _atualizar_painel(self.painel_msg, config)
+
+        resumo = f"✅ **{len(validos)}** preço(s) adicionado(s) e ordenado(s) do menor pro maior."
+        if invalidos:
+            resumo += f"\n⚠️ **{len(invalidos)}** linha(s) ignorada(s) por não ser(em) preço válido:\n"
+            resumo += "\n".join(f"• `{x}`" for x in invalidos[:10])
+        await interaction.followup.send(resumo, ephemeral=True)
 
 
 class EditarPrecoModal(Modal):
@@ -897,15 +985,24 @@ class EditarPrecoModal(Modal):
         preco = next((p for p in config[ch]["precos"] if p["id"] == preco_id), None)
         super().__init__(title=f"Editar Preço — {preco['valor'] if preco else ch}"[:45])
         self.ch, self.preco_id, self.gv = ch, preco_id, gv
-        self.valor = TextInput(label="Valor", default=preco["valor"] if preco else "", max_length=30, required=True)
+        self.valor = TextInput(label="Valor (ex: R$ 1,00)", default=preco["valor"] if preco else "", max_length=30, required=True)
         self.add_item(self.valor)
 
     async def on_submit(self, interaction: discord.Interaction):
+        v = _parse_valor_preco(self.valor.value)
+        if v is None:
+            await interaction.response.send_message(
+                f"❌ `{self.valor.value}` não é um preço válido.\n**Exemplos:** `R$ 1,00`, `2.50`, `10`",
+                ephemeral=True,
+            ); return
+
         config = carregar_config()
         for p in config[self.ch]["precos"]:
             if p["id"] == self.preco_id:
-                p["valor"] = self.valor.value.strip()
+                p["valor"] = _formatar_valor_preco(self.valor.value)
                 break
+        # Reordena do menor pro maior
+        config[self.ch]["precos"] = _ordenar_precos(config[self.ch]["precos"])
         salvar_config(config)
         view = GerenciarPrecosView(self.ch, self.gv.painel_msg)
         view.selected_id = self.preco_id
