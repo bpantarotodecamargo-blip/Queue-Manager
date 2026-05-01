@@ -444,13 +444,20 @@ def thumb_efetiva(config: dict, ch: str) -> str:
     return cfg.get("thumbnail") or config.get("global", {}).get("embed_global", {}).get("thumbnail", "")
 
 
-def usuario_pode_admin(member: discord.Member, config: dict) -> bool:
+def usuario_pode_admin(member, config: dict) -> bool:
     """True se for admin do servidor OU tem cargo_max."""
-    if member.guild_permissions.administrator or member.guild_permissions.manage_channels:
-        return True
+    try:
+        perms = getattr(member, "guild_permissions", None)
+        if perms and (perms.administrator or perms.manage_channels):
+            return True
+    except Exception:
+        pass
     cargo_max = config.get("global", {}).get("cargo_max_id")
-    if cargo_max and any(r.id == cargo_max for r in member.roles):
-        return True
+    try:
+        if cargo_max and any(r.id == cargo_max for r in getattr(member, "roles", [])):
+            return True
+    except Exception:
+        pass
     return False
 
 
@@ -3596,6 +3603,23 @@ class MyBot(discord.Client):
         # IMPORTANTE: não sincronizar globalmente para evitar comandos duplicados
         # (a sincronização será feita por servidor em on_ready / on_guild_join)
 
+    async def on_app_command_error(self, interaction: discord.Interaction, error: Exception):
+        import traceback
+        print(f"❌ [APP CMD ERROR] {interaction.command.name if interaction.command else '?'}: {error}")
+        traceback.print_exc()
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message("❌ Erro interno ao processar o comando. Tente novamente.", ephemeral=True)
+            else:
+                await interaction.followup.send("❌ Erro interno. Tente novamente.", ephemeral=True)
+        except Exception:
+            pass
+
+    async def on_error(self, event: str, *args, **kwargs):
+        import traceback
+        print(f"❌ [EVENT ERROR] {event}")
+        traceback.print_exc()
+
     async def on_ready(self):
         print(f"🤖 Bot conectado como {self.user} (ID: {self.user.id})")
         # Apaga comandos globais registrados na Discord (sem mexer na árvore local)
@@ -3672,12 +3696,24 @@ class MyBot(discord.Client):
 bot = MyBot()
 
 
-# ──────────────────────────────────────────────
-# Permission check para slash commands
-# ──────────────────────────────────────────────
+@bot.tree.error
+async def on_tree_error(interaction: discord.Interaction, error: Exception):
+    import traceback
+    cmd = interaction.command.name if interaction.command else "?"
+    print(f"❌ [TREE ERROR] /{cmd}: {error}")
+    traceback.print_exc()
+    try:
+        msg_err = f"❌ Erro interno (`{type(error).__name__}: {error}`). Tente novamente."
+        if not interaction.response.is_done():
+            await interaction.response.send_message(msg_err, ephemeral=True)
+        else:
+            await interaction.followup.send(msg_err, ephemeral=True)
+    except Exception:
+        pass
+
 
 # ──────────────────────────────────────────────
-# Personalizar Painel — view + modais
+# Permission check para slash commands
 # ──────────────────────────────────────────────
 
 class PersonalizarPainelView(View):
@@ -3808,11 +3844,21 @@ class PersonalizarPainelExtrasModal(Modal):
 
 
 async def _check_pode_admin(interaction: discord.Interaction) -> bool:
-    config = carregar_config()
-    if usuario_pode_admin(interaction.user, config):
-        return True
-    await interaction.response.send_message("❌ Você não tem permissão para usar este comando.", ephemeral=True)
-    return False
+    try:
+        config = carregar_config()
+        if usuario_pode_admin(interaction.user, config):
+            return True
+        await interaction.response.send_message("❌ Você não tem permissão para usar este comando.", ephemeral=True)
+        return False
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"❌ [CHECK ADMIN] Erro: {e}")
+        try:
+            await interaction.response.send_message(f"❌ Erro ao verificar permissão: `{e}`", ephemeral=True)
+        except Exception:
+            pass
+        return False
 
 
 # ──────────────────────────────────────────────
@@ -4424,13 +4470,25 @@ async def painel_tickets(interaction: discord.Interaction):
 
 @bot.tree.command(name="painel", description="Abre o painel de configuração das filas")
 async def painel(interaction: discord.Interaction):
+    import traceback
     if not await _check_pode_admin(interaction):
         return
-    config = carregar_config()
-    view   = PainelPrincipalView()
-    await interaction.response.send_message(embed=build_embed_painel_geral(config), view=view, ephemeral=True)
-    msg = await interaction.original_response()
-    view.set_message(msg)
+    try:
+        config = carregar_config()
+        view   = PainelPrincipalView()
+        await interaction.response.send_message(embed=build_embed_painel_geral(config), view=view, ephemeral=True)
+        msg = await interaction.original_response()
+        view.set_message(msg)
+    except Exception as e:
+        traceback.print_exc()
+        print(f"❌ [PAINEL] Erro ao abrir painel: {e}")
+        try:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f"❌ Erro ao abrir o painel: `{e}`", ephemeral=True)
+            else:
+                await interaction.followup.send(f"❌ Erro ao abrir o painel: `{e}`", ephemeral=True)
+        except Exception:
+            pass
 
 
 @bot.tree.command(name="criarfilas", description="Publica os embeds de fila nos canais configurados")
