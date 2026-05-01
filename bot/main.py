@@ -1372,6 +1372,7 @@ class ModoConfigView(View):
         self.add_item(_BtnVerPlaceholders(ch))
         self.add_item(_BtnVisualizar(ch))
         self.add_item(_BtnGerenciarPrecos(ch, painel_msg))
+        self.add_item(_BtnImportarPersonalizacao(ch, cat, painel_msg))
         self.add_item(_BtnVoltarCategoria(cat, painel_msg))
 
 
@@ -1488,6 +1489,135 @@ class _BtnVoltarCategoria(Button):
     async def callback(self, interaction: discord.Interaction):
         config = carregar_config()
         await interaction.response.edit_message(embed=build_embed_categoria(self.cat, config), view=CategoriaView(self.cat, self.painel_msg))
+
+
+# Campos copiados na importação de personalização (NÃO inclui canal_id nem precos)
+CAMPOS_PERSONALIZACAO = [
+    "titulo", "banner", "thumbnail", "descricao_template", "cor",
+    "botoes_entrar", "botao1", "botao2", "botao_sair", "botao_limpar",
+]
+
+
+class _BtnImportarPersonalizacao(Button):
+    def __init__(self, ch, cat, painel_msg):
+        super().__init__(style=discord.ButtonStyle.primary, label="Importar Visual", emoji="📥", row=2)
+        self.ch, self.cat, self.painel_msg = ch, cat, painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.edit_message(
+            embed=_build_embed_importar(self.ch, config, sel_ch=None),
+            view=ImportarPersonalizacaoView(self.ch, self.cat, self.painel_msg, sel_ch=None),
+        )
+
+
+def _build_embed_importar(dest_ch: str, config: dict, sel_ch: str | None) -> discord.Embed:
+    cat, _ = split_chave(dest_ch)
+    embed = discord.Embed(
+        title=f"📥  Importar Visual → {display(dest_ch)}",
+        description=(
+            "Selecione a fila de **origem** no menu abaixo.\n"
+            "Serão copiados: **título**, **banner**, **thumbnail**, **descrição**, **cor** e **botões**.\n"
+            "⚠️ Canal e preços **não** são alterados."
+        ),
+        color=cor_global(config),
+    )
+    if sel_ch and sel_ch in config:
+        src = config[sel_ch]
+        entrar = src.get("botoes_entrar", [])
+        botoes_txt = ", ".join(f"{b.get('emoji','')} {b.get('label','')}" for b in entrar) or "*nenhum*"
+        embed.add_field(name=f"📋 Origem: {display(sel_ch)}",
+                        value=(
+                            f"**Título:** {src.get('titulo','')}\n"
+                            f"**Cor:** {src.get('cor','') or '*global*'}\n"
+                            f"**Botões Entrar:** {botoes_txt}"
+                        ), inline=False)
+        embed.set_footer(text="Clique em ✅ Confirmar para aplicar a importação.")
+    else:
+        embed.set_footer(text="Selecione a origem no menu.")
+    return embed
+
+
+class ImportarPersonalizacaoView(View):
+    def __init__(self, dest_ch: str, cat: str, painel_msg, sel_ch: str | None):
+        super().__init__(timeout=300)
+        self.dest_ch, self.cat, self.painel_msg = dest_ch, cat, painel_msg
+        self.sel_ch = sel_ch
+        config = carregar_config()
+
+        # Monta opções: todos os modos EXCETO o próprio dest_ch
+        opts = []
+        for c, modos in MODOS_POR_CATEGORIA.items():
+            for m in modos:
+                chave = f"{c}_{m}"
+                if chave == dest_ch:
+                    continue
+                opts.append(discord.SelectOption(
+                    label=display(chave)[:100],
+                    value=chave,
+                    emoji=EMOJI_CATEGORIA.get(c, "🎮"),
+                    description=f"Categoria: {c.capitalize()}",
+                    default=(chave == sel_ch),
+                ))
+
+        sel = Select(placeholder="Selecione a fila de origem…", options=opts[:25], row=0)
+
+        async def _sel_cb(interaction: discord.Interaction):
+            self.sel_ch = sel.values[0]
+            cfg = carregar_config()
+            await interaction.response.edit_message(
+                embed=_build_embed_importar(self.dest_ch, cfg, self.sel_ch),
+                view=ImportarPersonalizacaoView(self.dest_ch, self.cat, self.painel_msg, self.sel_ch),
+            )
+        sel.callback = _sel_cb
+        self.add_item(sel)
+
+        self.add_item(_BtnConfirmarImportar(dest_ch, cat, painel_msg, sel_ch, disabled=not sel_ch))
+        self.add_item(_BtnCancelarImportar(dest_ch, cat, painel_msg))
+
+
+class _BtnConfirmarImportar(Button):
+    def __init__(self, dest_ch, cat, painel_msg, src_ch, disabled=False):
+        super().__init__(style=discord.ButtonStyle.success, label="Confirmar", emoji="✅", row=1, disabled=disabled)
+        self.dest_ch, self.cat, self.painel_msg, self.src_ch = dest_ch, cat, painel_msg, src_ch
+
+    async def callback(self, interaction: discord.Interaction):
+        if not self.src_ch:
+            await interaction.response.send_message("❌ Selecione uma origem primeiro.", ephemeral=True)
+            return
+        config = carregar_config()
+        if self.src_ch not in config:
+            await interaction.response.send_message("❌ Fila de origem não encontrada.", ephemeral=True)
+            return
+        src = config[self.src_ch]
+        import copy
+        for campo in CAMPOS_PERSONALIZACAO:
+            if campo in src:
+                config[self.dest_ch][campo] = copy.deepcopy(src[campo])
+        salvar_config(config)
+        await interaction.response.edit_message(
+            embed=build_embed_config_modo(self.dest_ch, config),
+            view=ModoConfigView(self.dest_ch, self.cat, self.painel_msg),
+        )
+        await interaction.followup.send(
+            f"✅ Visual de **{display(self.src_ch)}** importado para **{display(self.dest_ch)}** com sucesso!",
+            ephemeral=True,
+        )
+        await _atualizar_painel(self.painel_msg, config)
+        await _republicar_embeds_modo(self.dest_ch, config)
+
+
+class _BtnCancelarImportar(Button):
+    def __init__(self, dest_ch, cat, painel_msg):
+        super().__init__(style=discord.ButtonStyle.secondary, label="Cancelar", emoji="◀️", row=1)
+        self.dest_ch, self.cat, self.painel_msg = dest_ch, cat, painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.edit_message(
+            embed=build_embed_config_modo(self.dest_ch, config),
+            view=ModoConfigView(self.dest_ch, self.cat, self.painel_msg),
+        )
 
 
 # ──────────────────────────────────────────────
