@@ -1491,10 +1491,11 @@ class _BtnVoltarCategoria(Button):
         await interaction.response.edit_message(embed=build_embed_categoria(self.cat, config), view=CategoriaView(self.cat, self.painel_msg))
 
 
-# Campos copiados na importação de personalização (NÃO inclui canal_id nem precos)
+# Campos copiados na importação de personalização (NÃO inclui canal_id)
 CAMPOS_PERSONALIZACAO = [
     "titulo", "banner", "thumbnail", "descricao_template", "cor",
     "botoes_entrar", "botao1", "botao2", "botao_sair", "botao_limpar",
+    "precos",
 ]
 
 
@@ -1517,21 +1518,24 @@ def _build_embed_importar(dest_ch: str, config: dict, sel_ch: str | None) -> dis
         title=f"📥  Importar Visual → {display(dest_ch)}",
         description=(
             "Selecione a fila de **origem** no menu abaixo.\n"
-            "Serão copiados: **título**, **banner**, **thumbnail**, **descrição**, **cor** e **botões**.\n"
-            "⚠️ Canal e preços **não** são alterados."
+            "Serão copiados: **título**, **banner**, **thumbnail**, **descrição**, **cor**, **botões** e **preços**.\n"
+            "⚠️ Apenas o **canal** não é alterado."
         ),
         color=cor_global(config),
     )
     if sel_ch and sel_ch in config:
         src = config[sel_ch]
         entrar = src.get("botoes_entrar", [])
+        precos = src.get("precos", [])
         botoes_txt = ", ".join(f"{b.get('emoji','')} {b.get('label','')}" for b in entrar) or "*nenhum*"
+        precos_txt = "\n".join(f"• `{p.get('valor','')}`" for p in precos) or "*sem preços*"
         embed.add_field(name=f"📋 Origem: {display(sel_ch)}",
                         value=(
                             f"**Título:** {src.get('titulo','')}\n"
                             f"**Cor:** {src.get('cor','') or '*global*'}\n"
                             f"**Botões Entrar:** {botoes_txt}"
                         ), inline=False)
+        embed.add_field(name=f"💰 Preços ({len(precos)})", value=precos_txt, inline=False)
         embed.set_footer(text="Clique em ✅ Confirmar para aplicar a importação.")
     else:
         embed.set_footer(text="Selecione a origem no menu.")
@@ -1592,7 +1596,15 @@ class _BtnConfirmarImportar(Button):
         src = config[self.src_ch]
         import copy
         for campo in CAMPOS_PERSONALIZACAO:
-            if campo in src:
+            if campo not in src:
+                continue
+            if campo == "precos":
+                # Copia preços com novos IDs e jogadores zerados
+                config[self.dest_ch]["precos"] = [
+                    {"id": gerar_id(), "valor": p.get("valor", ""), "jogadores": []}
+                    for p in src["precos"]
+                ]
+            else:
                 config[self.dest_ch][campo] = copy.deepcopy(src[campo])
         salvar_config(config)
         await interaction.response.edit_message(
