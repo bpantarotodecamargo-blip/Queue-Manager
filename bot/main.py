@@ -1491,9 +1491,9 @@ class _BtnVoltarCategoria(Button):
         await interaction.response.edit_message(embed=build_embed_categoria(self.cat, config), view=CategoriaView(self.cat, self.painel_msg))
 
 
-# Campos copiados na importação de personalização (NÃO inclui canal_id)
+# Campos copiados na importação de personalização (NÃO inclui canal_id nem titulo)
 CAMPOS_PERSONALIZACAO = [
-    "titulo", "banner", "thumbnail", "descricao_template", "cor",
+    "banner", "thumbnail", "descricao_template", "cor",
     "botoes_entrar", "botao1", "botao2", "botao_sair", "botao_limpar",
     "precos",
 ]
@@ -1518,8 +1518,8 @@ def _build_embed_importar(dest_ch: str, config: dict, sel_ch: str | None) -> dis
         title=f"📥  Importar Visual → {display(dest_ch)}",
         description=(
             "Selecione a fila de **origem** no menu abaixo.\n"
-            "Serão copiados: **título**, **banner**, **thumbnail**, **descrição**, **cor**, **botões** e **preços**.\n"
-            "⚠️ Apenas o **canal** não é alterado."
+            "Serão copiados: **banner**, **thumbnail**, **descrição**, **cor**, **botões** e **preços**.\n"
+            "⚠️ **Canal** e **título** não são alterados."
         ),
         color=cor_global(config),
     )
@@ -1531,7 +1531,6 @@ def _build_embed_importar(dest_ch: str, config: dict, sel_ch: str | None) -> dis
         precos_txt = "\n".join(f"• `{p.get('valor','')}`" for p in precos) or "*sem preços*"
         embed.add_field(name=f"📋 Origem: {display(sel_ch)}",
                         value=(
-                            f"**Título:** {src.get('titulo','')}\n"
                             f"**Cor:** {src.get('cor','') or '*global*'}\n"
                             f"**Botões Entrar:** {botoes_txt}"
                         ), inline=False)
