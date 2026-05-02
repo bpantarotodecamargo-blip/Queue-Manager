@@ -378,6 +378,7 @@ PAINEL_ADMIN_BOTOES_DEFAULT = {
     "publicar":        {"emoji": "🚀", "label": "Publicar Filas"},
     "personalizar":    {"emoji": "🎛️", "label": "Personalizar Painel"},
     "blacklist":       {"emoji": "🚫", "label": "Blacklist"},
+    "tag_cargos":      {"emoji": "🏷️", "label": "Tags de Cargo"},
     # Painel do Modo
     "editar_embed":    {"emoji": "✏️", "label": "Título/Banner"},
     "editar_botoes":   {"emoji": "🎮", "label": "Editar Botões"},
@@ -549,6 +550,9 @@ def carregar_config(guild_id: int | None = None) -> dict:
 
     # Blacklist: usuários que não podem entrar nas filas
     g.setdefault("blacklist", [])  # [{user_id, reason, added_by, added_at}]
+
+    # Tags automáticas de cargo: [{role_id, tag}]
+    g.setdefault("tag_cargos", [])
 
     # Opções de gelo para filas Full Soco (configurável por servidor)
     g.setdefault("full_soco_gelo", [
@@ -737,6 +741,42 @@ def _usuario_na_blacklist(uid: str, config: dict) -> dict | None:
         if str(entry.get("user_id")) == str(uid):
             return entry
     return None
+
+
+# ── Tags automáticas de cargo ──────────────────────────────
+
+def _strip_known_tags(nick: str, config: dict) -> str:
+    """Remove qualquer prefixo de tag conhecida do apelido."""
+    for entry in config.get("global", {}).get("tag_cargos", []):
+        tag = entry.get("tag", "")
+        if tag and nick.startswith(tag):
+            return nick[len(tag):]
+    return nick
+
+
+def _calcular_prefix_nick(member: discord.Member, config: dict) -> str:
+    """Retorna o primeiro prefixo de tag aplicável ao membro (ordem de prioridade)."""
+    member_role_ids = {r.id for r in member.roles}
+    for entry in config.get("global", {}).get("tag_cargos", []):
+        rid = entry.get("role_id")
+        if rid and int(rid) in member_role_ids:
+            return entry.get("tag", "")
+    return ""
+
+
+async def _atualizar_nick_tag(member: discord.Member, config: dict) -> None:
+    """Tira qualquer tag existente e aplica a nova conforme os cargos do membro."""
+    try:
+        base   = _strip_known_tags(member.nick or member.name, config)
+        prefix = _calcular_prefix_nick(member, config)
+        novo   = (prefix + base)[:32] if prefix else base
+        destino = None if novo == member.name else novo
+        if member.nick != destino:
+            await member.edit(nick=destino, reason="Tag automática de cargo")
+    except (discord.Forbidden, discord.HTTPException):
+        pass
+    except Exception as e:
+        print(f"⚠️ [TAGS] Erro ao atualizar nick de {member}: {e}")
 
 
 # ──────────────────────────────────────────────
@@ -2438,6 +2478,7 @@ class PainelPrincipalView(View):
         self.add_item(_BtnPersonalizarPainel(painel_msg))
         # Row 2: outras ferramentas
         self.add_item(_BtnBlacklist(painel_msg))
+        self.add_item(_BtnTagCargos(painel_msg))
 
     def set_message(self, msg):
         self.painel_msg = msg
@@ -2740,6 +2781,200 @@ class _BuscarBlacklistModal(Modal):
         await interaction.response.edit_message(
             embed=build_embed_blacklist(config, 0, search),
             view=BlacklistView(self.painel_msg, interaction.guild_id, 0, search),
+        )
+
+
+# ──────────────────────────────────────────────
+# Painel: Tags Automáticas de Cargo
+# ──────────────────────────────────────────────
+
+def build_embed_tag_cargos(config: dict) -> discord.Embed:
+    tc = config.get("global", {}).get("tag_cargos", [])
+    embed = discord.Embed(
+        title="🏷️ Tags Automáticas de Cargo",
+        description=(
+            "Configure uma tag que será colocada automaticamente no início do apelido "
+            "quando um membro receber o cargo.\n\n"
+            "**Prioridade:** a primeira entrada da lista tem prioridade sobre as demais."
+        ),
+        color=discord.Color.blurple(),
+    )
+    if not tc:
+        embed.add_field(
+            name="Nenhuma tag configurada",
+            value="Clique em **➕ Adicionar** para criar uma entrada.",
+            inline=False,
+        )
+    else:
+        for i, e in enumerate(tc):
+            rid  = e.get("role_id")
+            tag  = e.get("tag", "")
+            role = f"<@&{rid}>" if rid else "`?`"
+            embed.add_field(
+                name=f"{i + 1}. {role}",
+                value=f"Tag: **`{tag}`**",
+                inline=True,
+            )
+    embed.set_footer(text="O apelido é atualizado automaticamente quando o cargo é dado ou removido.")
+    return embed
+
+
+class TagCargosView(View):
+    def __init__(self, painel_msg=None, guild_id: int | None = None):
+        super().__init__(timeout=300)
+        self.painel_msg = painel_msg
+        config = carregar_config(guild_id)
+        tc = config.get("global", {}).get("tag_cargos", [])
+
+        # Um botão de remoção por entrada (máx 10 entradas = 2 linhas de 5)
+        for i, entry in enumerate(tc[:10]):
+            tag = entry.get("tag", f"#{i + 1}")
+            self.add_item(_BtnRemoverTagCargo(i, entry.get("role_id", ""), tag, painel_msg, row=i // 5))
+
+        self.add_item(_BtnAdicionarTagCargo(painel_msg))
+        self.add_item(_BtnSincronizarTags(painel_msg))
+        self.add_item(_BtnVoltarTagCargos(painel_msg))
+
+
+class _BtnTagCargos(Button):
+    def __init__(self, painel_msg):
+        super().__init__(style=discord.ButtonStyle.secondary, row=2)
+        aplicar_btn_admin(self, "tag_cargos")
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
+        await interaction.response.edit_message(
+            embed=build_embed_tag_cargos(config),
+            view=TagCargosView(self.painel_msg, interaction.guild_id),
+        )
+
+
+class _BtnAdicionarTagCargo(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="➕ Adicionar", style=discord.ButtonStyle.success, row=3)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(AdicionarTagCargoModal(self.painel_msg))
+
+
+class _BtnRemoverTagCargo(Button):
+    def __init__(self, idx: int, role_id: str, tag: str, painel_msg, row: int = 0):
+        label = f"🗑 {tag[:18]}" if tag else f"🗑 #{idx + 1}"
+        super().__init__(label=label, style=discord.ButtonStyle.danger, row=row)
+        self.idx = idx
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
+        tc = config["global"].get("tag_cargos", [])
+        if self.idx >= len(tc):
+            await interaction.response.send_message("⚠️ Entrada não encontrada.", ephemeral=True); return
+        removed = tc.pop(self.idx)
+        config["global"]["tag_cargos"] = tc
+        salvar_config(config, interaction.guild_id)
+        await interaction.response.edit_message(
+            embed=build_embed_tag_cargos(config),
+            view=TagCargosView(self.painel_msg, interaction.guild_id),
+        )
+        rid = removed.get("role_id")
+        tag_txt = removed.get("tag", "")
+        cargo_txt = f"<@&{rid}>" if rid else "desconhecido"
+        await interaction.followup.send(f"✅ Tag `{tag_txt}` do cargo {cargo_txt} removida.", ephemeral=True)
+
+
+class _BtnSincronizarTags(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="🔄 Sincronizar todos", style=discord.ButtonStyle.secondary, row=3)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
+        await interaction.response.defer(ephemeral=True)
+        ok = erros = 0
+        for member in interaction.guild.members:
+            if member.bot:
+                continue
+            try:
+                await _atualizar_nick_tag(member, config)
+                ok += 1
+            except Exception:
+                erros += 1
+        msg = f"✅ Sincronização concluída: **{ok}** membros processados"
+        if erros:
+            msg += f", {erros} sem permissão ou com erro."
+        await interaction.followup.send(msg, ephemeral=True)
+
+
+class _BtnVoltarTagCargos(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="◀️ Voltar", style=discord.ButtonStyle.secondary, row=3)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+        view = PainelPrincipalView(self.painel_msg, interaction.guild_id)
+        view.set_message(self.painel_msg)
+        await interaction.response.edit_message(embed=build_embed_painel_geral(config), view=view)
+
+
+class AdicionarTagCargoModal(Modal):
+    def __init__(self, painel_msg):
+        super().__init__(title="🏷️ Adicionar Tag de Cargo")
+        self.painel_msg = painel_msg
+        self.role_id_field = TextInput(
+            label="ID do Cargo",
+            placeholder="Clique com botão direito no cargo → Copiar ID",
+            max_length=25,
+            required=True,
+        )
+        self.tag_field = TextInput(
+            label='Tag (prefixo do apelido)',
+            placeholder='Ex: "ADM | "  ou  "DONO | "  (inclua espaço se quiser)',
+            max_length=20,
+            required=True,
+        )
+        self.add_item(self.role_id_field)
+        self.add_item(self.tag_field)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        rid_str = self.role_id_field.value.strip()
+        tag     = self.tag_field.value   # não strip — espaços são intencionais
+        try:
+            rid = int(rid_str)
+        except ValueError:
+            await interaction.response.send_message("❌ ID de cargo inválido (deve ser numérico).", ephemeral=True)
+            return
+        role = interaction.guild.get_role(rid)
+        if not role:
+            await interaction.response.send_message(
+                f"❌ Cargo com ID `{rid}` não encontrado neste servidor.", ephemeral=True
+            )
+            return
+        config = carregar_config(interaction.guild_id)
+        tc = config["global"].setdefault("tag_cargos", [])
+        if any(str(e.get("role_id")) == str(rid) for e in tc):
+            await interaction.response.send_message(
+                f"⚠️ O cargo {role.mention} já tem uma tag configurada.", ephemeral=True
+            )
+            return
+        tc.append({"role_id": str(rid), "tag": tag})
+        salvar_config(config, interaction.guild_id)
+        await interaction.response.edit_message(
+            embed=build_embed_tag_cargos(config),
+            view=TagCargosView(self.painel_msg, interaction.guild_id),
+        )
+        await interaction.followup.send(
+            f"✅ Tag **`{tag}`** configurada para {role.mention}!\n"
+            f"Ela será aplicada automaticamente quando alguém receber esse cargo.",
+            ephemeral=True,
         )
 
 
@@ -4682,6 +4917,18 @@ class MyBot(discord.Client):
             print(f"⚠️ Autorole: sem permissão para dar cargo em '{member.guild.name}'.")
         except Exception as e:
             print(f"⚠️ Autorole: erro ao aplicar cargo: {e}")
+
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        """Detecta mudanças de cargo e atualiza a tag no apelido."""
+        if before.roles == after.roles:
+            return
+        try:
+            config = carregar_config(after.guild.id)
+            if not config.get("global", {}).get("tag_cargos"):
+                return
+            await _atualizar_nick_tag(after, config)
+        except Exception as e:
+            print(f"⚠️ [TAGS] on_member_update: {e}")
 
     async def on_member_remove(self, member: discord.Member):
         # Log: alguém saiu (ou foi removido) do servidor
