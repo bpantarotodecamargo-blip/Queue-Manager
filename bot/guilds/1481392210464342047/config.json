@@ -197,7 +197,7 @@
     "titulo": "Mobile 1v1",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1497999469445386421,
+    "canal_id": 1491563223181168641,
     "botao1": {
       "emoji": "<:ump:1497751179604787241>",
       "label": "Full Ump Xm8",
@@ -1597,33 +1597,33 @@
     "titulo": "Full Soco 1v1",
     "banner": "",
     "thumbnail": "",
-    "canal_id": null,
+    "canal_id": 1491563243003711533,
     "botao1": {
-      "emoji": "🎮",
-      "label": "Opção 1",
+      "emoji": "<:ump:1497751179604787241>",
+      "label": "Full Ump Xm8",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "🔫",
-      "label": "Opção 2",
+      "emoji": "<:entrar:1497751466973335592>",
+      "label": "Entrar Normal",
       "estilo": "secondary"
     },
     "botoes_entrar": [
       {
-        "id": "1",
-        "emoji": "🎮",
-        "label": "Opção 1",
-        "estilo": "secondary"
+        "emoji": "<:ump:1497751179604787241>",
+        "label": "Full Ump Xm8",
+        "estilo": "secondary",
+        "id": "1"
       },
       {
-        "id": "2",
-        "emoji": "🔫",
-        "label": "Opção 2",
-        "estilo": "secondary"
+        "emoji": "<:entrar:1497751466973335592>",
+        "label": "Entrar Normal",
+        "estilo": "secondary",
+        "id": "2"
       }
     ],
     "botao_sair": {
-      "emoji": "❌",
+      "emoji": "<:sair:1497751579716091944>",
       "label": "Sair da fila",
       "estilo": "danger"
     },
@@ -1634,13 +1634,73 @@
     },
     "precos": [
       {
-        "id": "42f84d2dd4",
+        "id": "48d4ea26a7",
+        "valor": "R$ 100,00",
+        "jogadores": []
+      },
+      {
+        "id": "4107adafa2",
+        "valor": "R$ 50,00",
+        "jogadores": []
+      },
+      {
+        "id": "c4c4d56dee",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "cf6834506e",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "f43aad1733",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "8ca426b77e",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "fa5bb9f1c0",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "109fb19060",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "4ab23ed578",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "94df9ef0c6",
         "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "60a77d7afc",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "5dfc2ac0af",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "0865a4ca78",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
-    "descricao_template": "",
-    "cor": ""
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
+    "cor": "#FFDF00"
   },
   "Full Soco_2v2": {
     "titulo": "Full Soco 2v2",
@@ -1648,31 +1708,31 @@
     "thumbnail": "",
     "canal_id": null,
     "botao1": {
-      "emoji": "🎮",
-      "label": "Opção 1",
+      "emoji": "<:ump:1497751179604787241>",
+      "label": "Full Ump Xm8",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "🔫",
-      "label": "Opção 2",
+      "emoji": "<:entrar:1497751466973335592>",
+      "label": "Entrar Normal",
       "estilo": "secondary"
     },
     "botoes_entrar": [
       {
-        "id": "1",
-        "emoji": "🎮",
-        "label": "Opção 1",
-        "estilo": "secondary"
+        "emoji": "<:ump:1497751179604787241>",
+        "label": "Full Ump Xm8",
+        "estilo": "secondary",
+        "id": "1"
       },
       {
-        "id": "2",
-        "emoji": "🔫",
-        "label": "Opção 2",
-        "estilo": "secondary"
+        "emoji": "<:entrar:1497751466973335592>",
+        "label": "Entrar Normal",
+        "estilo": "secondary",
+        "id": "2"
       }
     ],
     "botao_sair": {
-      "emoji": "❌",
+      "emoji": "<:sair:1497751579716091944>",
       "label": "Sair da fila",
       "estilo": "danger"
     },
@@ -1683,13 +1743,73 @@
     },
     "precos": [
       {
-        "id": "c7c05c12f5",
+        "id": "8adaacf6d4",
+        "valor": "R$ 100,00",
+        "jogadores": []
+      },
+      {
+        "id": "e25c51b205",
+        "valor": "R$ 50,00",
+        "jogadores": []
+      },
+      {
+        "id": "2f83d422e3",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "13115ca9fe",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "8a0e45652f",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "9ae50075d2",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "40cf020adc",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "261530db32",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "bd3376607d",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "c5f7683e1f",
         "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "06c7affb44",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "659ce38d46",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "65fd78df21",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
-    "descricao_template": "",
-    "cor": ""
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
+    "cor": "#FFDF00"
   },
   "Full Soco_3v3": {
     "titulo": "Full Soco 3v3",

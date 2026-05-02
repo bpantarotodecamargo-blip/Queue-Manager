@@ -1221,7 +1221,7 @@ class BotoesPainelView(View):
 
 class EditarBotaoModal(Modal):
     """Modal genérico pra editar/criar UM botão (entrar/sair/limpar)."""
-    def __init__(self, ch: str, painel_msg, alvo: str, btn_id: str | None = None, criar: bool = False):
+    def __init__(self, ch: str, painel_msg, alvo: str, btn_id: str | None = None, criar: bool = False, guild_id: int | None = None):
         # alvo: "entrar", "sair", "limpar"
         self.ch, self.painel_msg, self.alvo, self.btn_id, self.criar = ch, painel_msg, alvo, btn_id, criar
         titulo = {"entrar": "Adicionar Botão Entrar" if criar else "Editar Botão Entrar",
