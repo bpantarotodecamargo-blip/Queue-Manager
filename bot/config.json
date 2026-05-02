@@ -121,13 +121,50 @@
     },
     "tickets": {
       "embed": {
-        "titulo": "🎫 Central de Tickets",
-        "descricao": "Precisa de ajuda? Clique num dos botões abaixo pra abrir um ticket.",
+        "titulo": "Abra seu Ticket aqui!",
+        "descricao": "Escolha uma das opções abaixo para abrir seu atendimento. Nossa equipe responderá em **breve!**\n\nAbra apenas tickets necessários  •  **Tickets falsos = punição!**",
         "thumbnail": "",
         "banner": "",
         "cor": ""
       },
-      "botoes": []
+      "botoes": [
+        {
+          "id": "32a56fc9dd",
+          "emoji": "<:coroa:1498411100243365938>",
+          "label": "Vagas ADM",
+          "estilo": "secondary",
+          "canal_id": 1497999463745196195,
+          "mensagem_inicial": "Olá {user}! Descreva sua questão e aguarde um atendente.",
+          "cargo_atendimento_id": null
+        },
+        {
+          "id": "ed1e501538",
+          "emoji": "👩‍💼",
+          "label": "Suporte",
+          "estilo": "secondary",
+          "canal_id": 1497999453037269062,
+          "mensagem_inicial": "Olá {user}! Descreva sua questão e aguarde um atendente.",
+          "cargo_atendimento_id": null
+        },
+        {
+          "id": "ba3d2b1bfc",
+          "emoji": "💸",
+          "label": "Receber Evento",
+          "estilo": "secondary",
+          "canal_id": 1497999460406398986,
+          "mensagem_inicial": "Olá {user}! Descreva sua questão e aguarde um atendente.",
+          "cargo_atendimento_id": null
+        },
+        {
+          "id": "769781aede",
+          "emoji": "🧾",
+          "label": "Reembolso",
+          "estilo": "secondary",
+          "canal_id": 1497999457000886283,
+          "mensagem_inicial": "Olá {user}! Descreva sua questão e aguarde um atendente.",
+          "cargo_atendimento_id": null
+        }
+      ]
     },
     "cargo_autorole_id": 1497999270308216902,
     "logs": {

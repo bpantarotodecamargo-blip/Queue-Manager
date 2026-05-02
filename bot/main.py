@@ -4782,15 +4782,30 @@ class _BtnAbrirTicket(Button):
         await interaction.followup.send(f"✅ Seu ticket foi aberto: {topico.mention}", ephemeral=True)
 
         # ── LOG: ticket aberto ──
-        log_emb = _log_embed(
-            "ticket",
-            "🎫  Ticket Aberto",
-            f"**Usuário:** {interaction.user.mention}\n"
-            f"**Tipo:** {btn.get('label','—')}\n"
-            f"**Tópico:** {topico.mention}",
-            autor=interaction.user,
-        )
-        await _send_log(interaction.guild, "ticket", embed=log_emb)
+        try:
+            btn_emoji = btn.get("emoji", "")
+            btn_label = btn.get("label") or "—"
+            btn_display = f"{btn_emoji} {btn_label}".strip() if btn_emoji else btn_label
+            criado_em = discord.utils.format_dt(interaction.user.created_at, style="D")
+            log_emb = discord.Embed(
+                title="🎫  Ticket Aberto",
+                color=LOG_COR.get("ticket", 0x1ABC9C),
+            )
+            log_emb.set_author(
+                name=f"{interaction.user} ({interaction.user.id})",
+                icon_url=interaction.user.display_avatar.url if interaction.user.display_avatar else None,
+            )
+            log_emb.add_field(name="👤 Usuário",       value=interaction.user.mention,   inline=True)
+            log_emb.add_field(name="🎟️ Tipo",          value=f"`{btn_display}`",          inline=True)
+            log_emb.add_field(name="📢 Canal",          value=canal.mention,               inline=True)
+            log_emb.add_field(name="🗂️ Tópico",        value=topico.mention,              inline=True)
+            log_emb.add_field(name="🆔 ID Tópico",     value=f"`{topico.id}`",            inline=True)
+            log_emb.add_field(name="📅 Conta criada",  value=criado_em,                   inline=True)
+            log_emb.set_footer(text=f"ID usuário: {interaction.user.id}")
+            log_emb.timestamp = discord.utils.utcnow()
+            await _send_log(interaction.guild, "ticket", embed=log_emb)
+        except Exception as e:
+            print(f"⚠️ log ticket aberto: {e}")
 
 
 def _registrar_view_tickets():
@@ -4813,17 +4828,32 @@ class _FecharTicketView(View):
         await interaction.response.send_message(f"🔒 Ticket fechado por {interaction.user.mention}. Arquivando em 5s…")
         # ── LOG: ticket fechado ──
         try:
-            log_emb = _log_embed(
-                "ticket",
-                "🎫  Ticket Fechado",
-                f"**Fechado por:** {interaction.user.mention}\n"
-                f"**Tópico:** {canal.mention}\n"
-                f"**Nome:** `{canal.name}`",
-                autor=interaction.user,
+            aberto_em   = canal.created_at
+            agora       = discord.utils.utcnow()
+            duracao_seg = int((agora - aberto_em).total_seconds())
+            horas, rem  = divmod(duracao_seg, 3600)
+            minutos     = rem // 60
+            duracao_str = f"{horas}h {minutos}min" if horas else f"{minutos}min"
+            pai         = canal.parent
+            log_emb = discord.Embed(
+                title="🔒  Ticket Fechado",
+                color=0xE74C3C,
             )
+            log_emb.set_author(
+                name=f"{interaction.user} ({interaction.user.id})",
+                icon_url=interaction.user.display_avatar.url if interaction.user.display_avatar else None,
+            )
+            log_emb.add_field(name="🔒 Fechado por",    value=interaction.user.mention,                    inline=True)
+            log_emb.add_field(name="🗂️ Tópico",         value=f"`{canal.name}`",                           inline=True)
+            log_emb.add_field(name="🆔 ID Tópico",      value=f"`{canal.id}`",                             inline=True)
+            log_emb.add_field(name="📢 Canal pai",       value=pai.mention if pai else "—",                inline=True)
+            log_emb.add_field(name="⏱️ Duração",         value=duracao_str,                                 inline=True)
+            log_emb.add_field(name="📅 Aberto em",       value=discord.utils.format_dt(aberto_em, style="f"), inline=True)
+            log_emb.set_footer(text=f"ID usuário: {interaction.user.id}")
+            log_emb.timestamp = agora
             await _send_log(interaction.guild, "ticket", embed=log_emb)
         except Exception as e:
-            print(f"⚠️ log ticket: {e}")
+            print(f"⚠️ log ticket fechado: {e}")
         await asyncio.sleep(5)
         try:
             await canal.edit(archived=True, locked=True)
