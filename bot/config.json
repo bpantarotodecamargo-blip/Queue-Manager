@@ -2,13 +2,13 @@
   "global": {
     "cargo_adm_id": 1497999255376236617,
     "categoria_id": 1497999287404073000,
-    "cargo_max_id": 1497999250456318020,
+    "cargo_max_id": 1491563049914597438,
     "cargo_mediador_id": 1497999255376236617,
     "filas_ativas": true,
     "embed_global": {
       "banner": "",
-      "thumbnail": "",
-      "cor": "#FFFF00"
+      "thumbnail": "https://cdn.discordapp.com/attachments/1500133414580256902/1500135012362616983/image_48057a0a.png?ex=69f7551a&is=69f6039a&hm=6932d6b0bb65f02aeb26c6a3eb0114016eaf68fae138bcb2ce8575f8e08174a1&",
+      "cor": "#000000"
     },
     "mediadores": {
       "1479876596235239426": {
