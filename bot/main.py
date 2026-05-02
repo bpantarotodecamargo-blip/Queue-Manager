@@ -285,10 +285,37 @@ def parse_emoji_label(text: str):
 
 
 def to_discord_emoji(emoji_str: str):
-    m = _CUSTOM_EMOJI_BARE.match(emoji_str.strip())
+    if not emoji_str:
+        return None
+    s = emoji_str.strip()
+    # Custom Discord emoji: <:name:id> or <a:name:id>
+    m = _CUSTOM_EMOJI_BARE.match(s)
     if m:
         return discord.PartialEmoji(animated=bool(m.group(1)), name=m.group(2), id=int(m.group(3)))
-    return emoji_str
+    # Extracts only the first unicode emoji character, ignoring any trailing text
+    import unicodedata
+    result = []
+    i = 0
+    while i < len(s):
+        ch = s[i]
+        cat = unicodedata.category(ch)
+        # Emoji characters are typically So (Symbol, Other) or Sm, or have high codepoints
+        cp = ord(ch)
+        # Accept emoji ranges + variation selectors + ZWJ + combining enclosing keycap
+        if (cp in range(0x1F000, 0x10FFFF + 1)  # supplementary (most emoji)
+                or cp in range(0x2600, 0x27BF + 1)   # misc symbols & dingbats
+                or cp in range(0xFE00, 0xFE0F + 1)   # variation selectors
+                or cp == 0x200D                        # ZWJ
+                or cp == 0x20E3                        # combining enclosing keycap
+                or cp in range(0x1F1E0, 0x1F1FF + 1)  # regional indicators
+                or cat in ("So", "Sm")):
+            result.append(ch)
+        elif result:
+            # Stop as soon as we hit a non-emoji character after collecting something
+            break
+        i += 1
+    cleaned = "".join(result).strip()
+    return cleaned if cleaned else s
 
 
 def get_admin_btn(key: str) -> dict:

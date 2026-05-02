@@ -41,8 +41,8 @@
     },
     "painel_streamer_botoes": {
       "jogar_contra": {
-        "emoji": "🔫Jogar",
-        "label": "Contra"
+        "emoji": "🔫",
+        "label": "Jogar Contra"
       },
       "gear": {
         "emoji": "⚙️",
@@ -189,7 +189,7 @@
     "titulo": "Mobile 1v1",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1497999469445386421,
+    "canal_id": 1491563223181168641,
     "botao1": {
       "emoji": "<:geloff:1497750981172134019>",
       "label": "Gelo Normal",
@@ -202,8 +202,18 @@
     },
     "precos": [
       {
+        "id": "eab559c96f",
+        "valor": "R$ 0,20",
+        "jogadores": []
+      },
+      {
         "id": "afbebe9756",
         "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "d7a047c038",
+        "valor": "R$ 0,75",
         "jogadores": []
       },
       {
@@ -242,6 +252,11 @@
         "jogadores": []
       },
       {
+        "id": "2d9953979e",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
         "id": "217e5d1953",
         "valor": "R$ 50,00",
         "jogadores": []
@@ -249,11 +264,6 @@
       {
         "id": "0e4cf1dd00",
         "valor": "R$ 100,00",
-        "jogadores": []
-      },
-      {
-        "id": "79124192ec",
-        "valor": "R$ 200,00",
         "jogadores": []
       }
     ],
@@ -286,85 +296,90 @@
   },
   "Mobile_2v2": {
     "titulo": "Mobile 2v2",
-    "banner": "https://cdn.discordapp.com/attachments/1498005985523007580/1499517378483191808/ChatGPT_Image_30_de_abr._de_2026_18_05_58.png?ex=69f515e2&is=69f3c462&hm=3c469d0d587552c751480286f5b880a0a95b18dc30a44f44a37579dc089c6211&",
-    "thumbnail": "https://cdn.discordapp.com/attachments/1498005985523007580/1498006068390006948/ChatGPT_Image_26_de_abr._de_2026_13_42_25.png?ex=69f4dc5e&is=69f38ade&hm=2dcb6a1075c75f6fe7d760c64059a6e515fdf2fc1dc98086ceeb0a127e8188e1&",
+    "banner": "",
+    "thumbnail": "",
     "canal_id": 1497999471630483639,
     "botao1": {
-      "emoji": "<:entrar:1497751466973335592>",
-      "label": "Entrar na Fila",
+      "emoji": "<:geloff:1497750981172134019>",
+      "label": "Gelo Normal",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "<:ump:1497751179604787241>",
-      "label": "Full Ump Xm8",
+      "emoji": "<:geloff:1497750981172134019>",
+      "label": "Gelo Infinito",
       "estilo": "secondary"
     },
     "precos": [
       {
-        "id": "1bbdc7055e",
-        "valor": "R$ 0,25",
+        "id": "415197fd88",
+        "valor": "R$ 0,20",
         "jogadores": []
       },
       {
-        "id": "4040d36375",
+        "id": "5508bf15fe",
         "valor": "R$ 0,50",
         "jogadores": []
       },
       {
-        "id": "cb586a4b2f",
+        "id": "9a2885a2ea",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "0055eae247",
         "valor": "R$ 1,00",
         "jogadores": []
       },
       {
-        "id": "636274d929",
+        "id": "b071ea7d52",
         "valor": "R$ 2,00",
         "jogadores": []
       },
       {
-        "id": "2a9939365d",
+        "id": "89b116a2b1",
         "valor": "R$ 3,00",
         "jogadores": []
       },
       {
-        "id": "b9b97c8e3c",
+        "id": "4373319b99",
         "valor": "R$ 4,00",
         "jogadores": []
       },
       {
-        "id": "024203c5aa",
+        "id": "e09b95ba40",
         "valor": "R$ 5,00",
         "jogadores": []
       },
       {
-        "id": "61c782fe1c",
+        "id": "14016fea49",
         "valor": "R$ 10,00",
         "jogadores": []
       },
       {
-        "id": "7c9e66855e",
+        "id": "2d7a333935",
         "valor": "R$ 20,00",
         "jogadores": []
       },
       {
-        "id": "406e4a39ff",
+        "id": "99577b09cb",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "317401760b",
         "valor": "R$ 50,00",
         "jogadores": []
       },
       {
-        "id": "fdc9658c04",
+        "id": "2936c7051e",
         "valor": "R$ 100,00",
-        "jogadores": []
-      },
-      {
-        "id": "3c1fd45b2b",
-        "valor": "R$ 200,00",
         "jogadores": []
       }
     ],
-    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor:**\n[[valor_partida]]\n**Jogadores:**\n[[jogadores_fila]]",
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
     "cor": "#FFDF00",
     "botao_sair": {
-      "emoji": "❌",
+      "emoji": "<:sair:1497751579716091944>",
       "label": "Sair da fila",
       "estilo": "danger"
     },
@@ -375,16 +390,16 @@
     },
     "botoes_entrar": [
       {
-        "emoji": "<:entrar:1497751466973335592>",
-        "label": "Entrar na Fila",
-        "estilo": "secondary",
-        "id": "1"
+        "id": "1",
+        "emoji": "<:geloff:1497750981172134019>",
+        "label": "Gelo Normal",
+        "estilo": "secondary"
       },
       {
-        "emoji": "<:ump:1497751179604787241>",
-        "label": "Full Ump Xm8",
-        "estilo": "secondary",
-        "id": "2"
+        "id": "2",
+        "emoji": "<:geloff:1497750981172134019>",
+        "label": "Gelo Infinito",
+        "estilo": "secondary"
       }
     ]
   },
