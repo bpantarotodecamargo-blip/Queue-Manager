@@ -952,28 +952,88 @@
     "titulo": "Emulador 4v4",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1495091000031445315,
+    "canal_id": 1491563231762845727,
     "botao1": {
-      "emoji": "🎮",
-      "label": "Opção 1",
+      "emoji": "<:ump:1497751179604787241>",
+      "label": "Full Ump Xm8",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "🔫",
-      "label": "Opção 2",
+      "emoji": "<:entrar:1497751466973335592>",
+      "label": "Entrar Normal",
       "estilo": "secondary"
     },
     "precos": [
       {
-        "id": "41b988e567",
+        "id": "4c0ea0cfa9",
+        "valor": "R$ 0,20",
+        "jogadores": []
+      },
+      {
+        "id": "99a41c6956",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "ba6d89b904",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "46c3bc16f9",
         "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "e144c239b9",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "c81dcc7ca9",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "abbed01971",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "486b749763",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "8497666bf0",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "b4f2dd7b2a",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "4b863a5752",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "8afef8b0ec",
+        "valor": "R$ 50,00",
+        "jogadores": []
+      },
+      {
+        "id": "427186ae82",
+        "valor": "R$ 100,00",
         "jogadores": []
       }
     ],
-    "descricao_template": "",
-    "cor": "",
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
+    "cor": "#FFDF00",
     "botao_sair": {
-      "emoji": "❌",
+      "emoji": "<:sair:1497751579716091944>",
       "label": "Sair da fila",
       "estilo": "danger"
     },
@@ -984,16 +1044,16 @@
     },
     "botoes_entrar": [
       {
-        "id": "1",
-        "emoji": "🎮",
-        "label": "Opção 1",
-        "estilo": "secondary"
+        "emoji": "<:ump:1497751179604787241>",
+        "label": "Full Ump Xm8",
+        "estilo": "secondary",
+        "id": "1"
       },
       {
-        "id": "2",
-        "emoji": "🔫",
-        "label": "Opção 2",
-        "estilo": "secondary"
+        "emoji": "<:entrar:1497751466973335592>",
+        "label": "Entrar Normal",
+        "estilo": "secondary",
+        "id": "2"
       }
     ]
   },
@@ -1001,28 +1061,88 @@
     "titulo": "Misto 2v2",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1495091000031445315,
+    "canal_id": 1491563236452208671,
     "botao1": {
-      "emoji": "🎮",
-      "label": "Opção 1",
+      "emoji": "<:emu:1500142618938446027>",
+      "label": "1 Emu",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "🔫",
-      "label": "Opção 2",
+      "emoji": "<:entrar:1497751466973335592>",
+      "label": "Entrar Normal",
       "estilo": "secondary"
     },
     "precos": [
       {
-        "id": "5ec0f7caec",
+        "id": "4e00cefca3",
+        "valor": "R$ 0,20",
+        "jogadores": []
+      },
+      {
+        "id": "21bc725760",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "2a874ce1b4",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "f4a450dfef",
         "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "f4854a254c",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "710e2f801d",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "a3310db680",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "41c723e9d3",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "b5b8e0e292",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "eb1ca13512",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "5140ca18b7",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "0bfc5cc463",
+        "valor": "R$ 50,00",
+        "jogadores": []
+      },
+      {
+        "id": "7acf34f967",
+        "valor": "R$ 100,00",
         "jogadores": []
       }
     ],
-    "descricao_template": "",
-    "cor": "",
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
+    "cor": "#FFDF00",
     "botao_sair": {
-      "emoji": "❌",
+      "emoji": "<:sair:1497751579716091944>",
       "label": "Sair da fila",
       "estilo": "danger"
     },
@@ -1033,16 +1153,10 @@
     },
     "botoes_entrar": [
       {
-        "id": "1",
-        "emoji": "🎮",
-        "label": "Opção 1",
-        "estilo": "secondary"
-      },
-      {
-        "id": "2",
-        "emoji": "🔫",
-        "label": "Opção 2",
-        "estilo": "secondary"
+        "emoji": "<:emu:1500142618938446027>",
+        "label": "1 Emu",
+        "estilo": "secondary",
+        "id": "2"
       }
     ]
   },
@@ -1050,28 +1164,88 @@
     "titulo": "Misto 3v3",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1495091000031445315,
+    "canal_id": 1491563237953765377,
     "botao1": {
-      "emoji": "🎮",
-      "label": "Opção 1",
+      "emoji": "<:emu:1500142618938446027>",
+      "label": "1 Emu",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "🔫",
-      "label": "Opção 2",
+      "emoji": "<:emu:1500142618938446027>",
+      "label": "2 Emu",
       "estilo": "secondary"
     },
     "precos": [
       {
-        "id": "7911db6323",
+        "id": "1bf2dbabe9",
+        "valor": "R$ 0,20",
+        "jogadores": []
+      },
+      {
+        "id": "a4db147ed0",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "edbe728a48",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "b1b1141aba",
         "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "85cab950c6",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "0e73ea948a",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "2f32f6765b",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "548ac22c6f",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "2085c47e7a",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "17b65febe0",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "524b17cb18",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "c2bd64f338",
+        "valor": "R$ 50,00",
+        "jogadores": []
+      },
+      {
+        "id": "b6c581f445",
+        "valor": "R$ 100,00",
         "jogadores": []
       }
     ],
-    "descricao_template": "",
-    "cor": "",
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
+    "cor": "#FFDF00",
     "botao_sair": {
-      "emoji": "❌",
+      "emoji": "<:sair:1497751579716091944>",
       "label": "Sair da fila",
       "estilo": "danger"
     },
@@ -1082,16 +1256,16 @@
     },
     "botoes_entrar": [
       {
-        "id": "1",
-        "emoji": "🎮",
-        "label": "Opção 1",
-        "estilo": "secondary"
+        "emoji": "<:emu:1500142618938446027>",
+        "label": "1 Emu",
+        "estilo": "secondary",
+        "id": "2"
       },
       {
-        "id": "2",
-        "emoji": "🔫",
-        "label": "Opção 2",
-        "estilo": "secondary"
+        "emoji": "<:emu:1500142618938446027>",
+        "label": "2 Emu",
+        "estilo": "secondary",
+        "id": "94698c4ef6"
       }
     ]
   },
@@ -1099,28 +1273,88 @@
     "titulo": "Misto 4v4",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1495091000031445315,
+    "canal_id": 1491563239480492183,
     "botao1": {
-      "emoji": "🎮",
-      "label": "Opção 1",
+      "emoji": "<:emu:1500142618938446027>",
+      "label": "1 Emu",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "🔫",
-      "label": "Opção 2",
+      "emoji": "<:emu:1500142618938446027>",
+      "label": "2 Emu",
       "estilo": "secondary"
     },
     "precos": [
       {
-        "id": "e9b96eecc9",
+        "id": "4005cf9dd8",
+        "valor": "R$ 0,20",
+        "jogadores": []
+      },
+      {
+        "id": "66277ceaba",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "d8520be4a5",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "6160eb1e4f",
         "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "2783e4d804",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "003c954b26",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "2f22fdc125",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "e0a27dfba7",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "5f862358e0",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "ec41da7af4",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "b9caf315aa",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "aa33c96cc4",
+        "valor": "R$ 50,00",
+        "jogadores": []
+      },
+      {
+        "id": "b7c3db0a97",
+        "valor": "R$ 100,00",
         "jogadores": []
       }
     ],
-    "descricao_template": "",
-    "cor": "",
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
+    "cor": "#FFDF00",
     "botao_sair": {
-      "emoji": "❌",
+      "emoji": "<:sair:1497751579716091944>",
       "label": "Sair da fila",
       "estilo": "danger"
     },
@@ -1131,16 +1365,22 @@
     },
     "botoes_entrar": [
       {
-        "id": "1",
-        "emoji": "🎮",
-        "label": "Opção 1",
-        "estilo": "secondary"
+        "emoji": "<:emu:1500142618938446027>",
+        "label": "1 Emu",
+        "estilo": "secondary",
+        "id": "2"
       },
       {
-        "id": "2",
-        "emoji": "🔫",
-        "label": "Opção 2",
-        "estilo": "secondary"
+        "emoji": "<:emu:1500142618938446027>",
+        "label": "2 Emu",
+        "estilo": "secondary",
+        "id": "94698c4ef6"
+      },
+      {
+        "emoji": "<:emu:1500142618938446027>",
+        "label": "3 Emu",
+        "estilo": "secondary",
+        "id": "ea6aabf54c"
       }
     ]
   },

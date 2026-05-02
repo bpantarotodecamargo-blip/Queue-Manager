@@ -1398,11 +1398,11 @@ def _formatar_valor_preco(valor: str) -> str:
 
 
 def _ordenar_precos(precos: list) -> list:
-    """Ordena a lista de preços do menor pro maior. Inválidos vão pro fim."""
+    """Ordena a lista de preços do maior pro menor. Inválidos vão pro fim."""
     def _key(p):
         v = _parse_valor_preco(p.get("valor", ""))
-        return (1, 0.0) if v is None else (0, v)
-    return sorted(precos, key=_key)
+        return (0, 0.0) if v is None else (1, v)
+    return sorted(precos, key=_key, reverse=True)
 
 
 class AdicionarPrecoModal(Modal):
@@ -3235,7 +3235,7 @@ async def _publicar_filas(interaction: discord.Interaction, config: dict):
         canal = interaction.guild.get_channel(config[ch].get("canal_id"))
         if not canal:
             continue
-        # Garante que os preços estão ordenados do menor pro maior antes de publicar
+        # Garante que os preços estão ordenados do maior pro menor antes de publicar
         config[ch]["precos"] = _ordenar_precos(config[ch].get("precos", []))
         for preco in config[ch]["precos"]:
             embed = build_embed_fila(ch, preco, config)
