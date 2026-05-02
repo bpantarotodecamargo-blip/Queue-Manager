@@ -138,7 +138,14 @@
       "mediador": null,
       "ticket": null,
       "vitorias_ws": null,
-      "saiu_servidor": null
+      "saiu_servidor": null,
+      "entradas": null
+    },
+    "regras_config": {
+      "banner": "",
+      "thumbnail": "",
+      "cor": "",
+      "rodape": "Titan Org - Uma comunidade feliz"
     }
   },
   "Mobile_1v1": {

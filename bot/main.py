@@ -4524,16 +4524,16 @@ class _EscolherCanalTicketView(View):
         self.add_item(self._CanalSelect(self))
 
     class _CanalSelect(ChannelSelect):
-        def __init__(self, parent):
+        def __init__(self, outer):
             super().__init__(channel_types=[discord.ChannelType.text], placeholder="Escolha o canal onde os tickets serão abertos…", min_values=1, max_values=1)
-            self.parent = parent
+            self._outer = outer
 
         async def callback(self, interaction: discord.Interaction):
             canal = self.values[0]
             config = carregar_config()
-            if self.parent.modo == "adicionar":
-                self.parent.btn["canal_id"] = canal.id
-                config["global"]["tickets"]["botoes"].append(self.parent.btn)
+            if self._outer.modo == "adicionar":
+                self._outer.btn["canal_id"] = canal.id
+                config["global"]["tickets"]["botoes"].append(self._outer.btn)
                 salvar_config(config)
                 _registrar_view_tickets()
                 await interaction.response.edit_message(
@@ -4542,7 +4542,7 @@ class _EscolherCanalTicketView(View):
                 )
             else:  # editar_canal
                 for b in config["global"]["tickets"]["botoes"]:
-                    if b["id"] == self.parent.btn["id"]:
+                    if b["id"] == self._outer.btn["id"]:
                         b["canal_id"] = canal.id
                         break
                 salvar_config(config)
