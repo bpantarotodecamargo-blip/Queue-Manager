@@ -1467,6 +1467,90 @@ class EditarPrecoModal(Modal):
         await _atualizar_painel(self.gv.painel_msg, config)
 
 
+class EditarListaPrecosModal(Modal):
+    """Modal que exibe TODOS os preços atuais (um por linha) para edição em bloco."""
+    def __init__(self, ch: str, painel_msg=None):
+        super().__init__(title=f"Editar Lista de Preços — {display(ch)}"[:45])
+        self.ch, self.painel_msg = ch, painel_msg
+        config = carregar_config()
+        precos_atuais = config[ch].get("precos", [])
+        texto_atual = "\n".join(p["valor"] for p in precos_atuais)
+        self.lista = TextInput(
+            label="Preços (um por linha) — edite à vontade",
+            placeholder="R$ 1,00\nR$ 2,50\nR$ 10,00",
+            style=discord.TextStyle.paragraph,
+            default=texto_atual,
+            max_length=1000,
+            required=False,
+        )
+        self.add_item(self.lista)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        linhas = [l.strip() for l in self.lista.value.splitlines() if l.strip()]
+
+        # Separa válidos/inválidos
+        validos: list[str] = []
+        invalidos: list[str] = []
+        for ln in linhas:
+            if _parse_valor_preco(ln) is None:
+                invalidos.append(ln)
+            else:
+                validos.append(_formatar_valor_preco(ln))
+
+        if invalidos and not validos:
+            msg = "❌ **Nenhum preço válido reconhecido.**\n"
+            msg += "\n".join(f"• `{x}`" for x in invalidos[:10])
+            msg += "\n\n**Exemplos válidos:** `R$ 1,00`, `2.50`, `10`"
+            await interaction.response.send_message(msg, ephemeral=True)
+            return
+
+        # Mapa dos preços anteriores: valor → entrada (preserva jogadores)
+        precos_anteriores = config[self.ch].get("precos", [])
+        mapa_antigos: dict[str, dict] = {}
+        for p in precos_anteriores:
+            mapa_antigos.setdefault(p["valor"], p)
+
+        # Monta a nova lista reutilizando entradas antigas quando o valor bate
+        nova_lista: list[dict] = []
+        for valor_fmt in validos:
+            if valor_fmt in mapa_antigos:
+                nova_lista.append(mapa_antigos[valor_fmt])
+            else:
+                nova_lista.append({"id": gerar_id(), "valor": valor_fmt, "jogadores": []})
+
+        config[self.ch]["precos"] = _ordenar_precos(nova_lista)
+        salvar_config(config)
+
+        # Registra views para preços novos
+        b1 = config[self.ch]["botao1"]
+        b2 = config[self.ch]["botao2"]
+        ids_antigos = {p["id"] for p in precos_anteriores}
+        for p in config[self.ch]["precos"]:
+            if p["id"] not in ids_antigos:
+                bot.add_view(FilaView(self.ch, p["id"], b1, b2))
+
+        removidos = len(precos_anteriores) - sum(1 for p in nova_lista if p["id"] in ids_antigos)
+        adicionados = sum(1 for p in nova_lista if p["id"] not in ids_antigos)
+
+        view = GerenciarPrecosView(self.ch, self.painel_msg)
+        sel = config[self.ch]["precos"][-1]["id"] if config[self.ch]["precos"] else None
+        view.selected_id = sel
+        await interaction.response.edit_message(
+            embed=build_embed_gerenciar_precos(self.ch, config, sel), view=view
+        )
+        await _atualizar_painel(self.painel_msg, config)
+
+        partes = [f"✅ Lista atualizada: **{len(nova_lista)}** preço(s)."]
+        if adicionados:
+            partes.append(f"➕ {adicionados} adicionado(s).")
+        if removidos > 0:
+            partes.append(f"🗑️ {removidos} removido(s).")
+        if invalidos:
+            partes.append(f"⚠️ {len(invalidos)} linha(s) ignorada(s): " + ", ".join(f"`{x}`" for x in invalidos[:5]))
+        await interaction.followup.send(" ".join(partes), ephemeral=True)
+
+
 class CadastrarPixModal(Modal):
     def __init__(self, painel_med_msg=None):
         super().__init__(title="Cadastrar PIX — Mediador")
@@ -1517,6 +1601,7 @@ class GerenciarPrecosView(View):
         self.add_item(_BtnEditarPreco(self))
         self.add_item(_BtnRemoverPreco(self))
         self.add_item(_BtnAdicionarPreco(ch, painel_msg))
+        self.add_item(_BtnEditarListaPrecos(ch, painel_msg))
         self.add_item(_BtnVoltarModo(ch, painel_msg))
 
 
@@ -1560,6 +1645,15 @@ class _BtnAdicionarPreco(Button):
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.send_modal(AdicionarPrecoModal(self.ch, self.painel_msg))
+
+
+class _BtnEditarListaPrecos(Button):
+    def __init__(self, ch, painel_msg):
+        super().__init__(label="📝  Editar Lista", style=discord.ButtonStyle.primary, row=2)
+        self.ch, self.painel_msg = ch, painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(EditarListaPrecosModal(self.ch, self.painel_msg))
 
 
 class _BtnVoltarModo(Button):
