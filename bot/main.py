@@ -2454,11 +2454,11 @@ class _BtnPublicar(Button):
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
         await interaction.response.defer(ephemeral=True)
-        sem_canal  = [ch for ch in ALL_MODOS if not config[ch].get("canal_id")]
-        sem_precos = [ch for ch in ALL_MODOS if not config[ch].get("precos")]
+        sem_canal  = [ch for ch in ALL_MODOS if config[ch].get("precos") and not config[ch].get("canal_id")]
+        sem_precos = [ch for ch in ALL_MODOS if config[ch].get("canal_id") and not config[ch].get("precos")]
         erros = []
-        if sem_canal:  erros.append(f"Sem canal ({len(sem_canal)} modos)")
-        if sem_precos: erros.append(f"Sem preços ({len(sem_precos)} modos)")
+        if sem_canal:  erros.append(f"Sem canal ({len(sem_canal)} modos com preços mas sem canal)")
+        if sem_precos: erros.append(f"Sem preços ({len(sem_precos)} modos com canal mas sem preços)")
         if erros:
             await interaction.followup.send("⚠️ " + "\n".join(erros), ephemeral=True); return
         await _publicar_filas(interaction, config)
@@ -5169,9 +5169,9 @@ async def criarfilas(interaction: discord.Interaction):
         return
     await interaction.response.defer(ephemeral=True)
     config    = carregar_config(interaction.guild_id)
-    sem_canal = [ch for ch in ALL_MODOS if not config[ch].get("canal_id")]
+    sem_canal = [ch for ch in ALL_MODOS if config[ch].get("precos") and not config[ch].get("canal_id")]
     if sem_canal:
-        await interaction.followup.send(f"⚠️ Configure os canais com `/painel`. Sem canal: {len(sem_canal)} modo(s).", ephemeral=True)
+        await interaction.followup.send(f"⚠️ Configure os canais com `/painel`. Modos com preços sem canal: {len(sem_canal)}.", ephemeral=True)
         return
     await _publicar_filas(interaction, config)
 
