@@ -78,6 +78,7 @@ FEATURE_NOME = {
     "vencedor":     "definir vencedor",
     "limpar":       "limpar canal",
     "lock":         "trancar/destrancar canal",
+    "regras":       "enviar regras do apostado",
     "streamer":     "sistema de streamer",
     "tickets":      "sistema de tickets",
     "aparencia":    "personalização de aparência",
@@ -92,6 +93,7 @@ PLANO_MINIMO = {
     "vencedor":     "bronze",
     "limpar":       "bronze",
     "lock":         "bronze",
+    "regras":       "bronze",
     "streamer":     "prata",
     "tickets":      "prata",
     "aparencia":    "ouro",
@@ -5459,6 +5461,199 @@ async def unlock_cmd(
     embed.add_field(name="📢 Canal",        value=alvo.mention,                  inline=True)
     embed.set_footer(text="Use /lock para trancar novamente.")
     await interaction.response.send_message(embed=embed)
+
+
+# ──────────────────────────────────────────────
+# /regras
+# ──────────────────────────────────────────────
+
+def _embeds_regras_x1() -> list[discord.Embed]:
+    e1 = discord.Embed(
+        title="📜 REGRAS X1 — GELO INFINITO",
+        color=0x3498DB,
+    )
+    e1.add_field(
+        name="✔️ PERMITIDO",
+        value=(
+            "✔ Gel sem limite.\n"
+            "✔ Bater soco para valer.\n"
+            "✔ Mini Uzi e Desert permitidas apenas no 1º round."
+        ),
+        inline=False,
+    )
+    e1.add_field(
+        name="❌ PROIBIDO",
+        value=(
+            "❌ Proibido se fechar no gel.\n\n"
+            "❌ Proibido se trancar no gás *(exceto se a safe estiver pequena — 5 segundos para fechar)*.\n\n"
+            "❌ Quebra de regra = entregar round até o fim da partida ou W.O. *(o round deve ser pedido na hora, caso contrário segue normalmente)*.\n\n"
+            "❌ Caso não haja troca de socos, o X1 inicia automaticamente aos **00:35** *(tempo do relógio do jogo)* após sair da base.\n\n"
+            "❌ Matar o adversário de forma intencional para diminuir rounds = **2 rounds entregues** até o fim da partida ou W.O.\n\n"
+            "❌ Não é permitido utilizar **2 armas de rush** *(gel infinito)*."
+        ),
+        inline=False,
+    )
+
+    e2 = discord.Embed(
+        title="📜 REGRAS X1 — GEL NORMAL",
+        color=0x2980B9,
+    )
+    e2.add_field(
+        name="✔️ PERMITIDO",
+        value=(
+            "✔ Vale 2 armas de rush.\n"
+            "✔ É permitido se trancar / trancar o adversário."
+        ),
+        inline=False,
+    )
+    e2.add_field(
+        name="➡️ OBSERVAÇÕES",
+        value=(
+            "➡ **Mudança de regra:** Caso não haja nenhuma alteração combinada, o X1 será normal *(não é necessário bater soco)*.\n\n"
+            "➡ Situações de jogo devem ser resolvidas em consenso entre os jogadores.\n\n"
+            "➡ Armas e personagens seguem o padrão da org.\n\n"
+            "➡ Se for **tático**, seguem as regras de personagens e armas do tático.\n\n"
+            "➡ Se for **normal**, seguem as regras de personagens e armas normais."
+        ),
+        inline=False,
+    )
+    return [e1, e2]
+
+
+def _embeds_regras_geral() -> list[discord.Embed]:
+    e1 = discord.Embed(
+        title="🚹 PERSONAGENS",
+        color=0x9B59B6,
+    )
+    e1.add_field(
+        name="✅ PERSONAGENS PERMITIDOS",
+        value=(
+            "✅ ALOK *(só de ativa)*\n"
+            "✅ KELLY\n✅ MOCO\n✅ LAURA\n✅ MAXIM\n✅ KLA\n✅ LEON\n"
+            "✅ PALOMA\n✅ JOTA\n✅ MARO\n✅ CAROLINE\n✅ ANDREW *(normal)*"
+        ),
+        inline=False,
+    )
+    e1.add_field(
+        name="⚠️ REGRAS DE PERSONAGEM",
+        value=(
+            "🔴 **Replay obrigatório.**\n"
+            "🔴 Contas abaixo de **Level 15** → W.O. direto.\n\n"
+            "**Personagem errado que impacte na partida:**\n"
+            "Prejudicado escolhe round ou refaz com 1 round de vantagem — avisar até o **3º round** *(ex: 3×0, 2×1)*.\n"
+            "Passou do 3º round → **não será aceito** *(ex: 4×0, 3×1, 2×2)*."
+        ),
+        inline=False,
+    )
+
+    e2 = discord.Embed(
+        title="🔫 ARMAS",
+        color=0xE67E22,
+    )
+    e2.add_field(
+        name="✔️ ARMAS PERMITIDAS",
+        value=(
+            "✔ Mini Uzi e Desert somente no **1º round**.\n"
+            "✔ Vale USP / G18.\n"
+            "✔ Vale M1014 *(máx. 1 por time)*.\n"
+            "✔ Vale XM8.\n"
+            "✔ Vale AUG *(PROIBIDO EVOLUIR)*.\n"
+            "✔ Vale THOMPSON.\n"
+            "✔ Vale MP40.\n"
+            "✔ Vale UMP.\n"
+            "✔ Vale FAMAS.\n"
+            "✔ Vale MP5.\n"
+            "✔ Granada somente de **gelo**."
+        ),
+        inline=False,
+    )
+    e2.add_field(
+        name="🚨 ATENÇÃO — ARMAS",
+        value=(
+            "❌ Proibido **subir em casa**.\n\n"
+            "❌ Uso de armas proibidas *(AWM, Carapina, 12 Nova, etc.)* para diminuir rounds = **2 rounds entregues** ou W.O.\n\n"
+            "✔ Permitido subir até a **metade das escadas** para pegar pé, pular ou atirar.\n"
+            "✔ Plataforma da OBS e todos os containers são válidos.\n"
+            "✔ Telhadinhos e skips são permitidos.\n"
+            "✔ **Full UMP** → vale Mini Uzi, Desert e AUG no 1º round *(1º round é normal)*."
+        ),
+        inline=False,
+    )
+
+    e3 = discord.Embed(
+        title="🚨 REGRAS GERAIS — QUEBRA DE REGRA & COMBINADOS",
+        color=0xE74C3C,
+    )
+    e3.add_field(
+        name="➡️ QUEBRA DE REGRA",
+        value=(
+            "➡ O time deverá entregar **1 round** até o fim ou sofrer W.O. *(round solicitado na fila no momento)*.\n\n"
+            "➡ Toda acusação deve ser **comprovada** à staff ou ao mediador.\n\n"
+            "➡ Caso o time **perca** o round em que infringiu a regra, a partida seguirá normalmente.\n\n"
+            "➡ **Round:** Se combinado, o 1º round deve ser entregue. Caso contrário → 2 rounds seguidos ou W.O."
+        ),
+        inline=False,
+    )
+    e3.add_field(
+        name="➡️ MUDANÇA DE REGRA",
+        value=(
+            "➡ Avisar o ADM **antes do GO**. Após o GO, mesmo que o jogador saia, a partida será refeita com regra padrão ou o valor reembolsado.\n\n"
+            "➡ Em caso de **revanche (RV)** na mesma fila, a regra combinada anteriormente **continua valendo**."
+        ),
+        inline=False,
+    )
+    e3.add_field(
+        name="🚫 PROIBIDO",
+        value=(
+            "❌ Após a partida, ao chamar o adversário para RV, é **proibido solicitar tela** caso ele recuse *(válido apenas após chamar RV)*.\n\n"
+            "❌ Não é permitido solicitar **print do histórico** de outro jogador.\n\n"
+            "❌ Bug de **healando kit andando** → entregar **1 round**.\n\n"
+            "❌ Bug de **kit** → entregar **1 round**.\n\n"
+            "❌ Habilidade errada → **20c para recriar** ou W.O."
+        ),
+        inline=False,
+    )
+    e3.add_field(
+        name="🤝 COMBINADO ENTRE JOGADORES",
+        value=(
+            "Os dois jogadores deverão tirar **print do acordo** feito no início da partida.\n"
+            "*Exemplo: \"UMP e XM8\" → tirem print e mandem no chat de aposta.*\n\n"
+            "**⚠️ Sem print → o acordo será inválido.**\n\n"
+            "➡ As regras devem ser combinadas após a **confirmação** ou mediante envio de print do confirmado na fila."
+        ),
+        inline=False,
+    )
+    return [e1, e2, e3]
+
+
+@bot.tree.command(name="regras", description="Envia as regras do apostado neste canal")
+@app_commands.describe(tipo="Qual regra enviar")
+@app_commands.choices(tipo=[
+    app_commands.Choice(name="X1 (1x1)",              value="x1"),
+    app_commands.Choice(name="Regras Gerais",         value="geral"),
+    app_commands.Choice(name="Todas as regras",       value="todas"),
+])
+async def regras_cmd(interaction: discord.Interaction, tipo: app_commands.Choice[str]):
+    if not await _check_plano(interaction, "regras"):
+        return
+
+    await interaction.response.defer()
+
+    embeds: list[discord.Embed] = []
+    if tipo.value == "x1":
+        embeds = _embeds_regras_x1()
+    elif tipo.value == "geral":
+        embeds = _embeds_regras_geral()
+    else:
+        embeds = _embeds_regras_x1() + _embeds_regras_geral()
+
+    # Discord aceita máximo 10 embeds por mensagem
+    for i in range(0, len(embeds), 10):
+        chunk = embeds[i:i+10]
+        if i == 0:
+            await interaction.followup.send(embeds=chunk)
+        else:
+            await interaction.channel.send(embeds=chunk)
 
 
 def _run_health_server():
