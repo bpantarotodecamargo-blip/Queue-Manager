@@ -377,6 +377,7 @@ PAINEL_ADMIN_BOTOES_DEFAULT = {
     "filas_off":       {"emoji": "🛑", "label": "Filas OFF"},
     "publicar":        {"emoji": "🚀", "label": "Publicar Filas"},
     "personalizar":    {"emoji": "🎛️", "label": "Personalizar Painel"},
+    "blacklist":       {"emoji": "🚫", "label": "Blacklist"},
     # Painel do Modo
     "editar_embed":    {"emoji": "✏️", "label": "Título/Banner"},
     "editar_botoes":   {"emoji": "🎮", "label": "Editar Botões"},
@@ -545,6 +546,9 @@ def carregar_config(guild_id: int | None = None) -> dict:
         b.setdefault("canal_id", None)
         b.setdefault("mensagem_inicial", "Olá {user}! Descreva sua questão e aguarde um atendente.")
         b.setdefault("cargo_atendimento_id", None)
+
+    # Blacklist: usuários que não podem entrar nas filas
+    g.setdefault("blacklist", [])  # [{user_id, reason, added_by, added_at}]
 
     # Opções de gelo para filas Full Soco (configurável por servidor)
     g.setdefault("full_soco_gelo", [
@@ -725,6 +729,14 @@ def usuario_e_mediador(member: discord.Member, config: dict) -> bool:
     if cargo_med and any(r.id == cargo_med for r in member.roles):
         return True
     return usuario_pode_admin(member, config)
+
+
+def _usuario_na_blacklist(uid: str, config: dict) -> dict | None:
+    """Retorna a entrada da blacklist do usuário ou None se não estiver."""
+    for entry in config.get("global", {}).get("blacklist", []):
+        if str(entry.get("user_id")) == str(uid):
+            return entry
+    return None
 
 
 # ──────────────────────────────────────────────
@@ -2424,6 +2436,8 @@ class PainelPrincipalView(View):
         self.add_item(_BtnFilasToggle(painel_msg, guild_id))
         self.add_item(_BtnPublicar(painel_msg))
         self.add_item(_BtnPersonalizarPainel(painel_msg))
+        # Row 2: outras ferramentas
+        self.add_item(_BtnBlacklist(painel_msg))
 
     def set_message(self, msg):
         self.painel_msg = msg
@@ -2523,6 +2537,214 @@ class _BtnPersonalizarPainel(Button):
         await interaction.response.send_message(embed=embed, view=PersonalizarPainelView(), ephemeral=True)
 
 
+# ──────────────────────────────────────────────
+# Painel: Blacklist
+# ──────────────────────────────────────────────
+
+_BL_POR_PAG = 6
+
+
+def build_embed_blacklist(config: dict, page: int = 0, search: str = "") -> discord.Embed:
+    bl = config.get("global", {}).get("blacklist", [])
+    if search:
+        bl = [e for e in bl if search.lower() in str(e.get("user_id", "")).lower()
+              or search.lower() in e.get("reason", "").lower()]
+    total = len(bl)
+    inicio = page * _BL_POR_PAG
+    pagina = bl[inicio: inicio + _BL_POR_PAG]
+    total_pags = max(1, -(-total // _BL_POR_PAG))
+
+    embed = discord.Embed(
+        title="🚫 Blacklist de Filas",
+        color=discord.Color.red(),
+    )
+    if not pagina:
+        embed.description = "✅ Nenhum usuário na blacklist." if not search else "🔍 Nenhum resultado."
+    else:
+        linhas = []
+        for e in pagina:
+            uid = e.get("user_id", "?")
+            reason = e.get("reason", "")
+            added_by = e.get("added_by", "")
+            added_at = e.get("added_at", "")[:10] if e.get("added_at") else ""
+            linha = f"<@{uid}> (`{uid}`)"
+            if reason:
+                linha += f"\n  › **Motivo:** {reason}"
+            if added_by:
+                linha += f"\n  › Adicionado por <@{added_by}>"
+            if added_at:
+                linha += f" em `{added_at}`"
+            linhas.append(linha)
+        embed.description = "\n\n".join(linhas)
+    embed.set_footer(text=f"Total: {total} usuário(s) | Página {page + 1}/{total_pags}"
+                         + (f" | Busca: \"{search}\"" if search else ""))
+    return embed
+
+
+class BlacklistView(View):
+    def __init__(self, painel_msg=None, guild_id: int | None = None, page: int = 0, search: str = ""):
+        super().__init__(timeout=300)
+        self.painel_msg = painel_msg
+        self.page, self.search = page, search
+
+        config = carregar_config(guild_id)
+        bl_full = config.get("global", {}).get("blacklist", [])
+        if search:
+            bl_full = [e for e in bl_full if search.lower() in str(e.get("user_id", "")).lower()
+                       or search.lower() in e.get("reason", "").lower()]
+        total = len(bl_full)
+        total_pags = max(1, -(-total // _BL_POR_PAG))
+        inicio = page * _BL_POR_PAG
+        pagina = bl_full[inicio: inicio + _BL_POR_PAG]
+
+        # Botões de remoção (um por entrada visível)
+        for i, entry in enumerate(pagina):
+            self.add_item(_BtnRemoverBlacklist(entry.get("user_id", ""), painel_msg, page, search, row=i % 4))
+
+        # Linha de controle
+        self.add_item(_BtnBuscarBlacklist(painel_msg, page, search))
+        if search:
+            self.add_item(_BtnLimparBuscaBl(painel_msg, page))
+        if page > 0:
+            self.add_item(_BtnBlacklistPrev(painel_msg, page, search))
+        if page < total_pags - 1:
+            self.add_item(_BtnBlacklistNext(painel_msg, page, search))
+        self.add_item(_BtnVoltarBlacklist(painel_msg))
+
+
+class _BtnBlacklist(Button):
+    def __init__(self, painel_msg):
+        super().__init__(style=discord.ButtonStyle.danger, row=2)
+        aplicar_btn_admin(self, "blacklist")
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
+        await interaction.response.edit_message(
+            embed=build_embed_blacklist(config),
+            view=BlacklistView(self.painel_msg, interaction.guild_id),
+        )
+
+
+class _BtnRemoverBlacklist(Button):
+    def __init__(self, user_id: str, painel_msg, page: int, search: str, row: int = 0):
+        super().__init__(
+            label=f"🗑 {user_id}",
+            style=discord.ButtonStyle.danger,
+            row=row,
+        )
+        self.user_id, self.painel_msg = user_id, painel_msg
+        self.page, self.search = page, search
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
+        bl = config["global"].get("blacklist", [])
+        nova = [e for e in bl if str(e.get("user_id")) != str(self.user_id)]
+        if len(nova) == len(bl):
+            await interaction.response.send_message("⚠️ Usuário não encontrado na blacklist.", ephemeral=True); return
+        config["global"]["blacklist"] = nova
+        salvar_config(config, interaction.guild_id)
+        new_page = max(0, self.page - (1 if not nova[self.page * _BL_POR_PAG:] and self.page > 0 else 0))
+        await interaction.response.edit_message(
+            embed=build_embed_blacklist(config, new_page, self.search),
+            view=BlacklistView(self.painel_msg, interaction.guild_id, new_page, self.search),
+        )
+        await interaction.followup.send(f"✅ <@{self.user_id}> removido(a) da blacklist.", ephemeral=True)
+
+
+class _BtnBuscarBlacklist(Button):
+    def __init__(self, painel_msg, page: int, search: str):
+        super().__init__(
+            label="🔍 Buscar" if not search else f"🔍 \"{search[:20]}\"",
+            style=discord.ButtonStyle.secondary,
+            row=4,
+        )
+        self.painel_msg, self.page, self.search = painel_msg, page, search
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(_BuscarBlacklistModal(self.painel_msg))
+
+
+class _BtnLimparBuscaBl(Button):
+    def __init__(self, painel_msg, page: int):
+        super().__init__(label="✖ Limpar busca", style=discord.ButtonStyle.secondary, row=4)
+        self.painel_msg, self.page = painel_msg, page
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+        await interaction.response.edit_message(
+            embed=build_embed_blacklist(config, 0, ""),
+            view=BlacklistView(self.painel_msg, interaction.guild_id, 0, ""),
+        )
+
+
+class _BtnBlacklistPrev(Button):
+    def __init__(self, painel_msg, page: int, search: str):
+        super().__init__(label="◀ Anterior", style=discord.ButtonStyle.secondary, row=4)
+        self.painel_msg, self.page, self.search = painel_msg, page, search
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+        new_page = max(0, self.page - 1)
+        await interaction.response.edit_message(
+            embed=build_embed_blacklist(config, new_page, self.search),
+            view=BlacklistView(self.painel_msg, interaction.guild_id, new_page, self.search),
+        )
+
+
+class _BtnBlacklistNext(Button):
+    def __init__(self, painel_msg, page: int, search: str):
+        super().__init__(label="Próximo ▶", style=discord.ButtonStyle.secondary, row=4)
+        self.painel_msg, self.page, self.search = painel_msg, page, search
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+        new_page = self.page + 1
+        await interaction.response.edit_message(
+            embed=build_embed_blacklist(config, new_page, self.search),
+            view=BlacklistView(self.painel_msg, interaction.guild_id, new_page, self.search),
+        )
+
+
+class _BtnVoltarBlacklist(Button):
+    def __init__(self, painel_msg):
+        super().__init__(label="◀️ Voltar", style=discord.ButtonStyle.secondary, row=4)
+        self.painel_msg = painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+        view = PainelPrincipalView(self.painel_msg, interaction.guild_id)
+        view.set_message(self.painel_msg)
+        await interaction.response.edit_message(embed=build_embed_painel_geral(config), view=view)
+
+
+class _BuscarBlacklistModal(Modal):
+    def __init__(self, painel_msg):
+        super().__init__(title="🔍 Buscar na Blacklist")
+        self.painel_msg = painel_msg
+        self.termo = TextInput(
+            label="ID do usuário ou trecho do motivo",
+            placeholder="Ex: 123456789012345678 ou 'tóxico'",
+            max_length=100,
+            required=True,
+        )
+        self.add_item(self.termo)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        search = self.termo.value.strip()
+        config = carregar_config(interaction.guild_id)
+        await interaction.response.edit_message(
+            embed=build_embed_blacklist(config, 0, search),
+            view=BlacklistView(self.painel_msg, interaction.guild_id, 0, search),
+        )
+
+
+# ──────────────────────────────────────────────
+
 class _BtnPublicar(Button):
     def __init__(self, painel_msg):
         super().__init__(style=discord.ButtonStyle.success, row=1)
@@ -2607,6 +2829,16 @@ class _EntrarBtn(Button):
 
         uid   = str(interaction.user.id)
         total = jogadores_da_chave(ch)
+
+        # ── Blacklist ──
+        _bl = _usuario_na_blacklist(uid, config)
+        if _bl:
+            motivo = _bl.get("reason", "")
+            msg = "🚫 Você está na **blacklist** e não pode entrar nas filas."
+            if motivo:
+                msg += f"\n> **Motivo:** {motivo}"
+            await interaction.response.send_message(msg, ephemeral=True)
+            return
 
         if uid in preco["jogadores"]:
             await interaction.response.send_message("⚠️ Você já está nesta fila!", ephemeral=True); return
@@ -2750,6 +2982,16 @@ class _BtnGeloOpcao(Button):
 
         uid   = str(interaction.user.id)
         total = jogadores_da_chave(ch)
+
+        # ── Blacklist ──
+        _bl = _usuario_na_blacklist(uid, config)
+        if _bl:
+            motivo = _bl.get("reason", "")
+            msg = "🚫 Você está na **blacklist** e não pode entrar nas filas."
+            if motivo:
+                msg += f"\n> **Motivo:** {motivo}"
+            await interaction.response.edit_message(content=msg, embed=None, view=None)
+            return
 
         if uid in preco["jogadores"]:
             await interaction.response.edit_message(content="⚠️ Você já está nesta fila!", embed=None, view=None)
@@ -6210,6 +6452,82 @@ async def painel_regras_cmd(interaction: discord.Interaction):
         return
     config = carregar_config(interaction.guild_id)
     await interaction.response.send_message(embed=build_embed_painel_regras(config), view=PainelRegrasView(), ephemeral=True)
+
+
+# ──────────────────────────────────────────────
+# Comandos: Blacklist
+# ──────────────────────────────────────────────
+
+_blacklist_group = app_commands.Group(
+    name="blacklist",
+    description="Gerencia a blacklist de filas do servidor",
+)
+
+
+@_blacklist_group.command(name="add", description="Adiciona um usuário à blacklist (impede de entrar nas filas)")
+@app_commands.describe(
+    usuario="Usuário que será adicionado à blacklist",
+    motivo="Motivo do banimento (opcional)",
+)
+async def blacklist_add(interaction: discord.Interaction, usuario: discord.Member, motivo: str = ""):
+    config = carregar_config(interaction.guild_id)
+    if not usuario_pode_admin(interaction.user, config):
+        await interaction.response.send_message("❌ Sem permissão!", ephemeral=True)
+        return
+    bl = config["global"].setdefault("blacklist", [])
+    uid = str(usuario.id)
+    if any(str(e.get("user_id")) == uid for e in bl):
+        await interaction.response.send_message(
+            f"⚠️ {usuario.mention} já está na blacklist.", ephemeral=True
+        )
+        return
+    bl.append({
+        "user_id":   uid,
+        "reason":    motivo,
+        "added_by":  str(interaction.user.id),
+        "added_at":  datetime.datetime.utcnow().isoformat(),
+    })
+    salvar_config(config, interaction.guild_id)
+    msg = f"🚫 {usuario.mention} adicionado(a) à blacklist."
+    if motivo:
+        msg += f"\n> **Motivo:** {motivo}"
+    await interaction.response.send_message(msg)
+
+
+@_blacklist_group.command(name="remove", description="Remove um usuário da blacklist")
+@app_commands.describe(usuario="Usuário a ser removido da blacklist")
+async def blacklist_remove(interaction: discord.Interaction, usuario: discord.Member):
+    config = carregar_config(interaction.guild_id)
+    if not usuario_pode_admin(interaction.user, config):
+        await interaction.response.send_message("❌ Sem permissão!", ephemeral=True)
+        return
+    bl = config["global"].get("blacklist", [])
+    uid = str(usuario.id)
+    nova = [e for e in bl if str(e.get("user_id")) != uid]
+    if len(nova) == len(bl):
+        await interaction.response.send_message(
+            f"⚠️ {usuario.mention} não está na blacklist.", ephemeral=True
+        )
+        return
+    config["global"]["blacklist"] = nova
+    salvar_config(config, interaction.guild_id)
+    await interaction.response.send_message(f"✅ {usuario.mention} removido(a) da blacklist.")
+
+
+@_blacklist_group.command(name="ver", description="Lista quem está na blacklist (só você vê)")
+@app_commands.describe(busca="ID ou trecho do motivo para filtrar (opcional)")
+async def blacklist_ver(interaction: discord.Interaction, busca: str = ""):
+    config = carregar_config(interaction.guild_id)
+    if not usuario_pode_admin(interaction.user, config):
+        await interaction.response.send_message("❌ Sem permissão!", ephemeral=True)
+        return
+    await interaction.response.send_message(
+        embed=build_embed_blacklist(config, 0, busca),
+        ephemeral=True,
+    )
+
+
+bot.tree.add_command(_blacklist_group)
 
 
 def _run_health_server():
