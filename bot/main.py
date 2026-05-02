@@ -5467,11 +5467,17 @@ async def unlock_cmd(
 # /regras
 # ──────────────────────────────────────────────
 
+LOGO_PATH = Path(__file__).parent / "logo.png"
+LOGO_FILENAME = "logo.png"
+LOGO_URL = f"attachment://{LOGO_FILENAME}"
+
+
 def _embeds_regras_x1() -> list[discord.Embed]:
     e1 = discord.Embed(
         title="📜 REGRAS X1 — GELO INFINITO",
         color=0x3498DB,
     )
+    e1.set_thumbnail(url=LOGO_URL)
     e1.add_field(
         name="✔️ PERMITIDO",
         value=(
@@ -5498,6 +5504,7 @@ def _embeds_regras_x1() -> list[discord.Embed]:
         title="📜 REGRAS X1 — GEL NORMAL",
         color=0x2980B9,
     )
+    e2.set_thumbnail(url=LOGO_URL)
     e2.add_field(
         name="✔️ PERMITIDO",
         value=(
@@ -5525,6 +5532,7 @@ def _embeds_regras_geral() -> list[discord.Embed]:
         title="🚹 PERSONAGENS",
         color=0x9B59B6,
     )
+    e1.set_thumbnail(url=LOGO_URL)
     e1.add_field(
         name="✅ PERSONAGENS PERMITIDOS",
         value=(
@@ -5550,6 +5558,7 @@ def _embeds_regras_geral() -> list[discord.Embed]:
         title="🔫 ARMAS",
         color=0xE67E22,
     )
+    e2.set_thumbnail(url=LOGO_URL)
     e2.add_field(
         name="✔️ ARMAS PERMITIDAS",
         value=(
@@ -5584,6 +5593,7 @@ def _embeds_regras_geral() -> list[discord.Embed]:
         title="🚨 REGRAS GERAIS — QUEBRA DE REGRA & COMBINADOS",
         color=0xE74C3C,
     )
+    e3.set_thumbnail(url=LOGO_URL)
     e3.add_field(
         name="➡️ QUEBRA DE REGRA",
         value=(
@@ -5658,9 +5668,14 @@ async def regras_cmd(
         embeds = _embeds_regras_x1() + _embeds_regras_geral()
 
     # Envia os embeds no canal destino (máx 10 por mensagem)
+    # Cada chunk precisa de um novo discord.File (objetos File não são reutilizáveis)
     try:
         for i in range(0, len(embeds), 10):
-            await destino.send(embeds=embeds[i:i+10])
+            arquivo = discord.File(LOGO_PATH, filename=LOGO_FILENAME) if LOGO_PATH.exists() else None
+            if arquivo:
+                await destino.send(file=arquivo, embeds=embeds[i:i+10])
+            else:
+                await destino.send(embeds=embeds[i:i+10])
     except discord.Forbidden:
         await interaction.followup.send(
             f"❌ Não tenho permissão para enviar mensagens em {destino.mention}.",
