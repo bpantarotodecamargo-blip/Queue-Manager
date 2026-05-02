@@ -5477,7 +5477,7 @@ def _embeds_regras_x1(color: int = COR_PADRAO) -> list[discord.Embed]:
         title="📜 REGRAS X1 — GELO INFINITO",
         color=color,
     )
-    e1.set_thumbnail(url=LOGO_URL)
+    e1.set_image(url=LOGO_URL)
     e1.add_field(
         name="✔️ PERMITIDO",
         value=(
@@ -5504,7 +5504,7 @@ def _embeds_regras_x1(color: int = COR_PADRAO) -> list[discord.Embed]:
         title="📜 REGRAS X1 — GEL NORMAL",
         color=color,
     )
-    e2.set_thumbnail(url=LOGO_URL)
+    e2.set_image(url=LOGO_URL)
     e2.add_field(
         name="✔️ PERMITIDO",
         value=(
@@ -5532,7 +5532,7 @@ def _embeds_regras_geral(color: int = COR_PADRAO) -> list[discord.Embed]:
         title="🚹 PERSONAGENS",
         color=color,
     )
-    e1.set_thumbnail(url=LOGO_URL)
+    e1.set_image(url=LOGO_URL)
     e1.add_field(
         name="✅ PERSONAGENS PERMITIDOS",
         value=(
@@ -5558,7 +5558,7 @@ def _embeds_regras_geral(color: int = COR_PADRAO) -> list[discord.Embed]:
         title="🔫 ARMAS",
         color=color,
     )
-    e2.set_thumbnail(url=LOGO_URL)
+    e2.set_image(url=LOGO_URL)
     e2.add_field(
         name="✔️ ARMAS PERMITIDAS",
         value=(
@@ -5593,7 +5593,7 @@ def _embeds_regras_geral(color: int = COR_PADRAO) -> list[discord.Embed]:
         title="🚨 REGRAS GERAIS — QUEBRA DE REGRA & COMBINADOS",
         color=color,
     )
-    e3.set_thumbnail(url=LOGO_URL)
+    e3.set_image(url=LOGO_URL)
     e3.add_field(
         name="➡️ QUEBRA DE REGRA",
         value=(
