@@ -1,9 +1,9 @@
 {
   "global": {
-    "cargo_adm_id": 1497999255376236617,
-    "categoria_id": 1497999287404073000,
+    "cargo_adm_id": 1491563056642396396,
+    "categoria_id": 1491563160879108178,
     "cargo_max_id": 1491563049914597438,
-    "cargo_mediador_id": 1497999255376236617,
+    "cargo_mediador_id": 1491563056642396396,
     "filas_ativas": true,
     "embed_global": {
       "banner": "",
@@ -166,7 +166,7 @@
         }
       ]
     },
-    "cargo_autorole_id": 1497999270308216902,
+    "cargo_autorole_id": 1491563064074436760,
     "logs": {
       "iniciadas": 1498249723440533534,
       "confirmadas": 1498249816076058624,
@@ -187,8 +187,8 @@
   },
   "Mobile_1v1": {
     "titulo": "Mobile 1v1",
-    "banner": "https://cdn.discordapp.com/attachments/1498005985523007580/1499517378483191808/ChatGPT_Image_30_de_abr._de_2026_18_05_58.png?ex=69f515e2&is=69f3c462&hm=3c469d0d587552c751480286f5b880a0a95b18dc30a44f44a37579dc089c6211&",
-    "thumbnail": "https://cdn.discordapp.com/attachments/1498005985523007580/1498006068390006948/ChatGPT_Image_26_de_abr._de_2026_13_42_25.png?ex=69f4dc5e&is=69f38ade&hm=2dcb6a1075c75f6fe7d760c64059a6e515fdf2fc1dc98086ceeb0a127e8188e1&",
+    "banner": "",
+    "thumbnail": "",
     "canal_id": 1497999469445386421,
     "botao1": {
       "emoji": "<:geloff:1497750981172134019>",
@@ -201,11 +201,6 @@
       "estilo": "secondary"
     },
     "precos": [
-      {
-        "id": "11c3ab688f",
-        "valor": "R$ 0,25",
-        "jogadores": []
-      },
       {
         "id": "afbebe9756",
         "valor": "R$ 0,50",
@@ -1195,5 +1190,9 @@
       }
     ]
   },
-  "aparencias": {}
+  "aparencias": {
+    "1481392210464342047": {
+      "bio": "MELHOR ORG DE APOSTADO! FILAS 20C SEM TAXA DE ADM, VEM PRA MELHOR INT SPORT 💸"
+    }
+  }
 }
