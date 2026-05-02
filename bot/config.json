@@ -12,12 +12,20 @@
     },
     "mediadores": {
       "1479876596235239426": {
-        "nome": "Batata",
+        "nome": "Breno Pantaroto de Camargo",
         "tipo": "email",
-        "chave": "111111111"
+        "chave": "bpantarotodecamargo@gmail.com"
+      },
+      "1395937802377760818": {
+        "nome": "Marina Pereira Soares",
+        "tipo": "Telefone",
+        "chave": "83991937816"
       }
     },
-    "fila_mediador": [],
+    "fila_mediador": [
+      "1395937802377760818",
+      "1479876596235239426"
+    ],
     "streamer": {
       "user_id": 1395937802377760818,
       "modo": "1v1",
@@ -202,58 +210,8 @@
     },
     "precos": [
       {
-        "id": "eab559c96f",
-        "valor": "R$ 0,20",
-        "jogadores": []
-      },
-      {
-        "id": "afbebe9756",
-        "valor": "R$ 0,50",
-        "jogadores": []
-      },
-      {
-        "id": "d7a047c038",
-        "valor": "R$ 0,75",
-        "jogadores": []
-      },
-      {
-        "id": "913483572c",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "638870bc40",
-        "valor": "R$ 2,00",
-        "jogadores": []
-      },
-      {
-        "id": "d826262011",
-        "valor": "R$ 3,00",
-        "jogadores": []
-      },
-      {
-        "id": "4ce6223f5c",
-        "valor": "R$ 4,00",
-        "jogadores": []
-      },
-      {
-        "id": "b8f8882cc7",
-        "valor": "R$ 5,00",
-        "jogadores": []
-      },
-      {
-        "id": "1098d6b42c",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "53ef5428bb",
-        "valor": "R$ 20,00",
-        "jogadores": []
-      },
-      {
-        "id": "2d9953979e",
-        "valor": "R$ 40,00",
+        "id": "0e4cf1dd00",
+        "valor": "R$ 100,00",
         "jogadores": []
       },
       {
@@ -262,8 +220,58 @@
         "jogadores": []
       },
       {
-        "id": "0e4cf1dd00",
-        "valor": "R$ 100,00",
+        "id": "2d9953979e",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "53ef5428bb",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "1098d6b42c",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "b8f8882cc7",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "4ce6223f5c",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "d826262011",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "638870bc40",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "913483572c",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "d7a047c038",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "afbebe9756",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "eab559c96f",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
@@ -311,58 +319,8 @@
     },
     "precos": [
       {
-        "id": "415197fd88",
-        "valor": "R$ 0,20",
-        "jogadores": []
-      },
-      {
-        "id": "5508bf15fe",
-        "valor": "R$ 0,50",
-        "jogadores": []
-      },
-      {
-        "id": "9a2885a2ea",
-        "valor": "R$ 0,75",
-        "jogadores": []
-      },
-      {
-        "id": "0055eae247",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "b071ea7d52",
-        "valor": "R$ 2,00",
-        "jogadores": []
-      },
-      {
-        "id": "89b116a2b1",
-        "valor": "R$ 3,00",
-        "jogadores": []
-      },
-      {
-        "id": "4373319b99",
-        "valor": "R$ 4,00",
-        "jogadores": []
-      },
-      {
-        "id": "e09b95ba40",
-        "valor": "R$ 5,00",
-        "jogadores": []
-      },
-      {
-        "id": "14016fea49",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "2d7a333935",
-        "valor": "R$ 20,00",
-        "jogadores": []
-      },
-      {
-        "id": "99577b09cb",
-        "valor": "R$ 40,00",
+        "id": "2936c7051e",
+        "valor": "R$ 100,00",
         "jogadores": []
       },
       {
@@ -371,8 +329,58 @@
         "jogadores": []
       },
       {
-        "id": "2936c7051e",
-        "valor": "R$ 100,00",
+        "id": "99577b09cb",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "2d7a333935",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "14016fea49",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "e09b95ba40",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "4373319b99",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "89b116a2b1",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "b071ea7d52",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "0055eae247",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "9a2885a2ea",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "5508bf15fe",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "415197fd88",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
@@ -420,58 +428,8 @@
     },
     "precos": [
       {
-        "id": "40b55f4b3a",
-        "valor": "R$ 0,20",
-        "jogadores": []
-      },
-      {
-        "id": "1a80feb026",
-        "valor": "R$ 0,50",
-        "jogadores": []
-      },
-      {
-        "id": "98d4669dc9",
-        "valor": "R$ 0,75",
-        "jogadores": []
-      },
-      {
-        "id": "542f797b9c",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "f12ab346fc",
-        "valor": "R$ 2,00",
-        "jogadores": []
-      },
-      {
-        "id": "12c877853a",
-        "valor": "R$ 3,00",
-        "jogadores": []
-      },
-      {
-        "id": "8ac2b5c71a",
-        "valor": "R$ 4,00",
-        "jogadores": []
-      },
-      {
-        "id": "b6b5018648",
-        "valor": "R$ 5,00",
-        "jogadores": []
-      },
-      {
-        "id": "8e9019910c",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "7a1cf343f2",
-        "valor": "R$ 20,00",
-        "jogadores": []
-      },
-      {
-        "id": "893f8063e9",
-        "valor": "R$ 40,00",
+        "id": "059806fcfe",
+        "valor": "R$ 100,00",
         "jogadores": []
       },
       {
@@ -480,8 +438,58 @@
         "jogadores": []
       },
       {
-        "id": "059806fcfe",
-        "valor": "R$ 100,00",
+        "id": "893f8063e9",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "7a1cf343f2",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "8e9019910c",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "b6b5018648",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "8ac2b5c71a",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "12c877853a",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "f12ab346fc",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "542f797b9c",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "98d4669dc9",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "1a80feb026",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "40b55f4b3a",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
@@ -529,58 +537,8 @@
     },
     "precos": [
       {
-        "id": "c0373b83a4",
-        "valor": "R$ 0,20",
-        "jogadores": []
-      },
-      {
-        "id": "41f8ee9df8",
-        "valor": "R$ 0,50",
-        "jogadores": []
-      },
-      {
-        "id": "42479e72b0",
-        "valor": "R$ 0,75",
-        "jogadores": []
-      },
-      {
-        "id": "73687b48e2",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "0d48f94312",
-        "valor": "R$ 2,00",
-        "jogadores": []
-      },
-      {
-        "id": "cfa4356410",
-        "valor": "R$ 3,00",
-        "jogadores": []
-      },
-      {
-        "id": "56abcf3792",
-        "valor": "R$ 4,00",
-        "jogadores": []
-      },
-      {
-        "id": "ba9518e833",
-        "valor": "R$ 5,00",
-        "jogadores": []
-      },
-      {
-        "id": "be9d8170c4",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "a34e5cab95",
-        "valor": "R$ 20,00",
-        "jogadores": []
-      },
-      {
-        "id": "de8eebcd93",
-        "valor": "R$ 40,00",
+        "id": "85501eee79",
+        "valor": "R$ 100,00",
         "jogadores": []
       },
       {
@@ -589,8 +547,58 @@
         "jogadores": []
       },
       {
-        "id": "85501eee79",
-        "valor": "R$ 100,00",
+        "id": "de8eebcd93",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "a34e5cab95",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "be9d8170c4",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "ba9518e833",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "56abcf3792",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "cfa4356410",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "0d48f94312",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "73687b48e2",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "42479e72b0",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "41f8ee9df8",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "c0373b83a4",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
@@ -638,58 +646,8 @@
     },
     "precos": [
       {
-        "id": "c6f042aa92",
-        "valor": "R$ 0,20",
-        "jogadores": []
-      },
-      {
-        "id": "06fff33184",
-        "valor": "R$ 0,50",
-        "jogadores": []
-      },
-      {
-        "id": "3531007091",
-        "valor": "R$ 0,75",
-        "jogadores": []
-      },
-      {
-        "id": "46282d0045",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "be684174a0",
-        "valor": "R$ 2,00",
-        "jogadores": []
-      },
-      {
-        "id": "222b9625c1",
-        "valor": "R$ 3,00",
-        "jogadores": []
-      },
-      {
-        "id": "dc9d63d1f1",
-        "valor": "R$ 4,00",
-        "jogadores": []
-      },
-      {
-        "id": "fd6f927c89",
-        "valor": "R$ 5,00",
-        "jogadores": []
-      },
-      {
-        "id": "fc93841ab9",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "bd11472d58",
-        "valor": "R$ 20,00",
-        "jogadores": []
-      },
-      {
-        "id": "143b4fa1e9",
-        "valor": "R$ 40,00",
+        "id": "a4806329a2",
+        "valor": "R$ 100,00",
         "jogadores": []
       },
       {
@@ -698,8 +656,58 @@
         "jogadores": []
       },
       {
-        "id": "a4806329a2",
-        "valor": "R$ 100,00",
+        "id": "143b4fa1e9",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "bd11472d58",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "fc93841ab9",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "fd6f927c89",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "dc9d63d1f1",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "222b9625c1",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "be684174a0",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "46282d0045",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "3531007091",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "06fff33184",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "c6f042aa92",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
@@ -747,58 +755,8 @@
     },
     "precos": [
       {
-        "id": "e3617c0a47",
-        "valor": "R$ 0,20",
-        "jogadores": []
-      },
-      {
-        "id": "0ea03f9d83",
-        "valor": "R$ 0,50",
-        "jogadores": []
-      },
-      {
-        "id": "9dc77dcac8",
-        "valor": "R$ 0,75",
-        "jogadores": []
-      },
-      {
-        "id": "72fb5f4fa6",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "e962515be5",
-        "valor": "R$ 2,00",
-        "jogadores": []
-      },
-      {
-        "id": "b8fbe95345",
-        "valor": "R$ 3,00",
-        "jogadores": []
-      },
-      {
-        "id": "7c1cb39da1",
-        "valor": "R$ 4,00",
-        "jogadores": []
-      },
-      {
-        "id": "521cc12e2f",
-        "valor": "R$ 5,00",
-        "jogadores": []
-      },
-      {
-        "id": "d9b792d44f",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "1483047460",
-        "valor": "R$ 20,00",
-        "jogadores": []
-      },
-      {
-        "id": "66fd7d5f75",
-        "valor": "R$ 40,00",
+        "id": "86bfe7a9b7",
+        "valor": "R$ 100,00",
         "jogadores": []
       },
       {
@@ -807,8 +765,58 @@
         "jogadores": []
       },
       {
-        "id": "86bfe7a9b7",
-        "valor": "R$ 100,00",
+        "id": "66fd7d5f75",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "1483047460",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "d9b792d44f",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "521cc12e2f",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "7c1cb39da1",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "b8fbe95345",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "e962515be5",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "72fb5f4fa6",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "9dc77dcac8",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "0ea03f9d83",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "e3617c0a47",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
@@ -856,58 +864,8 @@
     },
     "precos": [
       {
-        "id": "820930e378",
-        "valor": "R$ 0,20",
-        "jogadores": []
-      },
-      {
-        "id": "5979380940",
-        "valor": "R$ 0,50",
-        "jogadores": []
-      },
-      {
-        "id": "9929e4d481",
-        "valor": "R$ 0,75",
-        "jogadores": []
-      },
-      {
-        "id": "283704beee",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "91b0d896b4",
-        "valor": "R$ 2,00",
-        "jogadores": []
-      },
-      {
-        "id": "c950e4e184",
-        "valor": "R$ 3,00",
-        "jogadores": []
-      },
-      {
-        "id": "ebc4749c8b",
-        "valor": "R$ 4,00",
-        "jogadores": []
-      },
-      {
-        "id": "cb21ee448c",
-        "valor": "R$ 5,00",
-        "jogadores": []
-      },
-      {
-        "id": "0a82eee72b",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "c9825d07d1",
-        "valor": "R$ 20,00",
-        "jogadores": []
-      },
-      {
-        "id": "698524db92",
-        "valor": "R$ 40,00",
+        "id": "cf1d2c7bad",
+        "valor": "R$ 100,00",
         "jogadores": []
       },
       {
@@ -916,8 +874,58 @@
         "jogadores": []
       },
       {
-        "id": "cf1d2c7bad",
-        "valor": "R$ 100,00",
+        "id": "698524db92",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "c9825d07d1",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "0a82eee72b",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "cb21ee448c",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "ebc4749c8b",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "c950e4e184",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "91b0d896b4",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "283704beee",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "9929e4d481",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "5979380940",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "820930e378",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
@@ -965,58 +973,8 @@
     },
     "precos": [
       {
-        "id": "4c0ea0cfa9",
-        "valor": "R$ 0,20",
-        "jogadores": []
-      },
-      {
-        "id": "99a41c6956",
-        "valor": "R$ 0,50",
-        "jogadores": []
-      },
-      {
-        "id": "ba6d89b904",
-        "valor": "R$ 0,75",
-        "jogadores": []
-      },
-      {
-        "id": "46c3bc16f9",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "e144c239b9",
-        "valor": "R$ 2,00",
-        "jogadores": []
-      },
-      {
-        "id": "c81dcc7ca9",
-        "valor": "R$ 3,00",
-        "jogadores": []
-      },
-      {
-        "id": "abbed01971",
-        "valor": "R$ 4,00",
-        "jogadores": []
-      },
-      {
-        "id": "486b749763",
-        "valor": "R$ 5,00",
-        "jogadores": []
-      },
-      {
-        "id": "8497666bf0",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "b4f2dd7b2a",
-        "valor": "R$ 20,00",
-        "jogadores": []
-      },
-      {
-        "id": "4b863a5752",
-        "valor": "R$ 40,00",
+        "id": "427186ae82",
+        "valor": "R$ 100,00",
         "jogadores": []
       },
       {
@@ -1025,8 +983,58 @@
         "jogadores": []
       },
       {
-        "id": "427186ae82",
-        "valor": "R$ 100,00",
+        "id": "4b863a5752",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "b4f2dd7b2a",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "8497666bf0",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "486b749763",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "abbed01971",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "c81dcc7ca9",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "e144c239b9",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "46c3bc16f9",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "ba6d89b904",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "99a41c6956",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "4c0ea0cfa9",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
@@ -1074,58 +1082,8 @@
     },
     "precos": [
       {
-        "id": "4e00cefca3",
-        "valor": "R$ 0,20",
-        "jogadores": []
-      },
-      {
-        "id": "21bc725760",
-        "valor": "R$ 0,50",
-        "jogadores": []
-      },
-      {
-        "id": "2a874ce1b4",
-        "valor": "R$ 0,75",
-        "jogadores": []
-      },
-      {
-        "id": "f4a450dfef",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "f4854a254c",
-        "valor": "R$ 2,00",
-        "jogadores": []
-      },
-      {
-        "id": "710e2f801d",
-        "valor": "R$ 3,00",
-        "jogadores": []
-      },
-      {
-        "id": "a3310db680",
-        "valor": "R$ 4,00",
-        "jogadores": []
-      },
-      {
-        "id": "41c723e9d3",
-        "valor": "R$ 5,00",
-        "jogadores": []
-      },
-      {
-        "id": "b5b8e0e292",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "eb1ca13512",
-        "valor": "R$ 20,00",
-        "jogadores": []
-      },
-      {
-        "id": "5140ca18b7",
-        "valor": "R$ 40,00",
+        "id": "7acf34f967",
+        "valor": "R$ 100,00",
         "jogadores": []
       },
       {
@@ -1134,8 +1092,58 @@
         "jogadores": []
       },
       {
-        "id": "7acf34f967",
-        "valor": "R$ 100,00",
+        "id": "5140ca18b7",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "eb1ca13512",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "b5b8e0e292",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "41c723e9d3",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "a3310db680",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "710e2f801d",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "f4854a254c",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "f4a450dfef",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "2a874ce1b4",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "21bc725760",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "4e00cefca3",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
@@ -1177,58 +1185,8 @@
     },
     "precos": [
       {
-        "id": "1bf2dbabe9",
-        "valor": "R$ 0,20",
-        "jogadores": []
-      },
-      {
-        "id": "a4db147ed0",
-        "valor": "R$ 0,50",
-        "jogadores": []
-      },
-      {
-        "id": "edbe728a48",
-        "valor": "R$ 0,75",
-        "jogadores": []
-      },
-      {
-        "id": "b1b1141aba",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "85cab950c6",
-        "valor": "R$ 2,00",
-        "jogadores": []
-      },
-      {
-        "id": "0e73ea948a",
-        "valor": "R$ 3,00",
-        "jogadores": []
-      },
-      {
-        "id": "2f32f6765b",
-        "valor": "R$ 4,00",
-        "jogadores": []
-      },
-      {
-        "id": "548ac22c6f",
-        "valor": "R$ 5,00",
-        "jogadores": []
-      },
-      {
-        "id": "2085c47e7a",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "17b65febe0",
-        "valor": "R$ 20,00",
-        "jogadores": []
-      },
-      {
-        "id": "524b17cb18",
-        "valor": "R$ 40,00",
+        "id": "b6c581f445",
+        "valor": "R$ 100,00",
         "jogadores": []
       },
       {
@@ -1237,8 +1195,58 @@
         "jogadores": []
       },
       {
-        "id": "b6c581f445",
-        "valor": "R$ 100,00",
+        "id": "524b17cb18",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "17b65febe0",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "2085c47e7a",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "548ac22c6f",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "2f32f6765b",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "0e73ea948a",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "85cab950c6",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "b1b1141aba",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "edbe728a48",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "a4db147ed0",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "1bf2dbabe9",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
@@ -1286,58 +1294,8 @@
     },
     "precos": [
       {
-        "id": "4005cf9dd8",
-        "valor": "R$ 0,20",
-        "jogadores": []
-      },
-      {
-        "id": "66277ceaba",
-        "valor": "R$ 0,50",
-        "jogadores": []
-      },
-      {
-        "id": "d8520be4a5",
-        "valor": "R$ 0,75",
-        "jogadores": []
-      },
-      {
-        "id": "6160eb1e4f",
-        "valor": "R$ 1,00",
-        "jogadores": []
-      },
-      {
-        "id": "2783e4d804",
-        "valor": "R$ 2,00",
-        "jogadores": []
-      },
-      {
-        "id": "003c954b26",
-        "valor": "R$ 3,00",
-        "jogadores": []
-      },
-      {
-        "id": "2f22fdc125",
-        "valor": "R$ 4,00",
-        "jogadores": []
-      },
-      {
-        "id": "e0a27dfba7",
-        "valor": "R$ 5,00",
-        "jogadores": []
-      },
-      {
-        "id": "5f862358e0",
-        "valor": "R$ 10,00",
-        "jogadores": []
-      },
-      {
-        "id": "ec41da7af4",
-        "valor": "R$ 20,00",
-        "jogadores": []
-      },
-      {
-        "id": "b9caf315aa",
-        "valor": "R$ 40,00",
+        "id": "b7c3db0a97",
+        "valor": "R$ 100,00",
         "jogadores": []
       },
       {
@@ -1346,8 +1304,58 @@
         "jogadores": []
       },
       {
-        "id": "b7c3db0a97",
-        "valor": "R$ 100,00",
+        "id": "b9caf315aa",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "ec41da7af4",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "5f862358e0",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "e0a27dfba7",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "2f22fdc125",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "003c954b26",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "2783e4d804",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "6160eb1e4f",
+        "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "d8520be4a5",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "66277ceaba",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "4005cf9dd8",
+        "valor": "R$ 0,20",
         "jogadores": []
       }
     ],
