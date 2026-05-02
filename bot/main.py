@@ -77,6 +77,7 @@ FEATURE_NOME = {
     "mediador":     "painel de mediadores",
     "vencedor":     "definir vencedor",
     "limpar":       "limpar canal",
+    "lock":         "trancar/destrancar canal",
     "streamer":     "sistema de streamer",
     "tickets":      "sistema de tickets",
     "aparencia":    "personalização de aparência",
@@ -90,6 +91,7 @@ PLANO_MINIMO = {
     "mediador":     "bronze",
     "vencedor":     "bronze",
     "limpar":       "bronze",
+    "lock":         "bronze",
     "streamer":     "prata",
     "tickets":      "prata",
     "aparencia":    "ouro",
@@ -5352,6 +5354,110 @@ async def top_invites_cmd(interaction: discord.Interaction):
     )
     embed.add_field(name="👥 Total de membros", value=f"**{interaction.guild.member_count}**", inline=True)
     embed.set_footer(text="Apenas convites rastreados pelo bot são contabilizados.")
+    await interaction.response.send_message(embed=embed)
+
+
+# ──────────────────────────────────────────────
+# /lock  e  /unlock
+# ──────────────────────────────────────────────
+
+@bot.tree.command(name="lock", description="Tranca o canal — impede que membros enviem mensagens")
+@app_commands.describe(
+    canal="Canal a trancar (padrão: canal atual)",
+    motivo="Motivo do lock (opcional)",
+)
+async def lock_cmd(
+    interaction: discord.Interaction,
+    canal: discord.TextChannel = None,
+    motivo: str = "Nenhum motivo informado",
+):
+    if not await _check_plano(interaction, "lock"):
+        return
+
+    alvo = canal or interaction.channel
+    guild = interaction.guild
+
+    if not isinstance(alvo, discord.TextChannel):
+        await interaction.response.send_message("❌ Selecione um canal de texto válido.", ephemeral=True)
+        return
+
+    everyone = guild.default_role
+    overwrite = alvo.overwrites_for(everyone)
+
+    if overwrite.send_messages is False:
+        await interaction.response.send_message(
+            f"⚠️ O canal {alvo.mention} já está trancado.", ephemeral=True
+        )
+        return
+
+    overwrite.send_messages = False
+    try:
+        await alvo.set_permissions(everyone, overwrite=overwrite, reason=f"Lock por {interaction.user} — {motivo}")
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "❌ Não tenho permissão para alterar as permissões desse canal.", ephemeral=True
+        )
+        return
+
+    embed = discord.Embed(
+        title="🔒 Canal Trancado",
+        description=f"O canal {alvo.mention} foi **trancado**.\nMembros não podem mais enviar mensagens.",
+        color=0xE74C3C,
+    )
+    embed.add_field(name="📋 Motivo",       value=motivo,                        inline=False)
+    embed.add_field(name="👮 Moderador",    value=interaction.user.mention,      inline=True)
+    embed.add_field(name="📢 Canal",        value=alvo.mention,                  inline=True)
+    embed.set_footer(text="Use /unlock para destrancar.")
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="unlock", description="Destranca o canal — permite que membros enviem mensagens novamente")
+@app_commands.describe(
+    canal="Canal a destrancar (padrão: canal atual)",
+    motivo="Motivo do unlock (opcional)",
+)
+async def unlock_cmd(
+    interaction: discord.Interaction,
+    canal: discord.TextChannel = None,
+    motivo: str = "Nenhum motivo informado",
+):
+    if not await _check_plano(interaction, "lock"):
+        return
+
+    alvo = canal or interaction.channel
+    guild = interaction.guild
+
+    if not isinstance(alvo, discord.TextChannel):
+        await interaction.response.send_message("❌ Selecione um canal de texto válido.", ephemeral=True)
+        return
+
+    everyone = guild.default_role
+    overwrite = alvo.overwrites_for(everyone)
+
+    if overwrite.send_messages is not False:
+        await interaction.response.send_message(
+            f"⚠️ O canal {alvo.mention} não está trancado.", ephemeral=True
+        )
+        return
+
+    overwrite.send_messages = None
+    try:
+        await alvo.set_permissions(everyone, overwrite=overwrite, reason=f"Unlock por {interaction.user} — {motivo}")
+    except discord.Forbidden:
+        await interaction.response.send_message(
+            "❌ Não tenho permissão para alterar as permissões desse canal.", ephemeral=True
+        )
+        return
+
+    embed = discord.Embed(
+        title="🔓 Canal Destrancado",
+        description=f"O canal {alvo.mention} foi **destrancado**.\nMembros podem enviar mensagens novamente.",
+        color=0x2ECC71,
+    )
+    embed.add_field(name="📋 Motivo",       value=motivo,                        inline=False)
+    embed.add_field(name="👮 Moderador",    value=interaction.user.mention,      inline=True)
+    embed.add_field(name="📢 Canal",        value=alvo.mention,                  inline=True)
+    embed.set_footer(text="Use /lock para trancar novamente.")
     await interaction.response.send_message(embed=embed)
 
 
