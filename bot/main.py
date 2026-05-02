@@ -9,6 +9,7 @@ import uuid
 import re
 import threading
 import http.server
+import time as _time_module
 import secrets
 import datetime
 from pathlib import Path
@@ -18,25 +19,32 @@ BOT_OWNER_ID = int(os.environ.get("BOT_OWNER_ID", "0"))
 CONFIG_FILE   = Path(__file__).parent / "config.json"
 KEYS_FILE     = Path(__file__).parent / "keys.json"
 INVITES_FILE  = Path(__file__).parent / "invites.json"
+GUILDS_DIR    = Path(__file__).parent / "guilds"
+_BOT_START_TIME = _time_module.time()
+
+def _guild_config_path(guild_id: int) -> Path:
+    return GUILDS_DIR / str(guild_id) / "config.json"
 
 # ──────────────────────────────────────────────
 # Estrutura de categorias e modos
 # ──────────────────────────────────────────────
 
-CATEGORIAS = ["Mobile", "Emulador", "Misto", "Tático"]
+CATEGORIAS = ["Mobile", "Emulador", "Misto", "Tático", "Full Soco"]
 
 MODOS_POR_CATEGORIA = {
-    "Mobile":   ["1v1", "2v2", "3v3", "4v4"],
-    "Emulador": ["1v1", "2v2", "3v3", "4v4"],
-    "Misto":    ["2v2", "3v3", "4v4"],
-    "Tático":   ["1v1", "2v2", "3v3", "4v4"],
+    "Mobile":    ["1v1", "2v2", "3v3", "4v4"],
+    "Emulador":  ["1v1", "2v2", "3v3", "4v4"],
+    "Misto":     ["2v2", "3v3", "4v4"],
+    "Tático":    ["1v1", "2v2", "3v3", "4v4"],
+    "Full Soco": ["1v1", "2v2", "3v3", "4v4"],
 }
 
 EMOJI_CATEGORIA = {
-    "Mobile":   "📱",
-    "Emulador": "💻",
-    "Misto":    "🔀",
-    "Tático":   "🎯",
+    "Mobile":    "📱",
+    "Emulador":  "💻",
+    "Misto":     "🔀",
+    "Tático":    "🎯",
+    "Full Soco": "👊",
 }
 
 EMOJI_MODO = {"1v1": "⚔️", "2v2": "👥", "3v3": "🛡️", "4v4": "🎮"}
@@ -318,10 +326,10 @@ def to_discord_emoji(emoji_str: str):
     return cleaned if cleaned else s
 
 
-def get_admin_btn(key: str) -> dict:
+def get_admin_btn(key: str, guild_id: int | None = None) -> dict:
     """Lê a configuração do botão do painel admin (com fallback ao default)."""
     try:
-        cfg = carregar_config()
+        cfg = carregar_config(guild_id)
         b = cfg.get("global", {}).get("painel_admin_botoes", {}).get(key, {})
     except Exception:
         b = {}
@@ -329,9 +337,9 @@ def get_admin_btn(key: str) -> dict:
     return {"emoji": b.get("emoji") or base["emoji"], "label": b.get("label", base["label"])}
 
 
-def aplicar_btn_admin(btn, key: str):
+def aplicar_btn_admin(btn, key: str, guild_id: int | None = None):
     """Aplica emoji + label personalizados a um Button já criado."""
-    info = get_admin_btn(key)
+    info = get_admin_btn(key, guild_id)
     btn.label = info["label"] or None
     if info["emoji"]:
         btn.emoji = to_discord_emoji(info["emoji"])
@@ -404,12 +412,16 @@ def _modo_padrao(ch: str) -> dict:
     }
 
 
-def carregar_config() -> dict:
+def carregar_config(guild_id: int | None = None) -> dict:
     data: dict = {}
+    path = _guild_config_path(guild_id) if guild_id else CONFIG_FILE
 
-    if CONFIG_FILE.exists():
-        with open(CONFIG_FILE, "r", encoding="utf-8") as fp:
-            data = json.load(fp)
+    if path.exists():
+        try:
+            with open(path, "r", encoding="utf-8") as fp:
+                data = json.load(fp)
+        except Exception:
+            data = {}
 
     # Global config
     data.setdefault("global", {})
@@ -593,8 +605,13 @@ def carregar_config() -> dict:
     return data
 
 
-def salvar_config(config: dict):
-    with open(CONFIG_FILE, "w", encoding="utf-8") as fp:
+def salvar_config(config: dict, guild_id: int | None = None):
+    if guild_id:
+        path = _guild_config_path(guild_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        path = CONFIG_FILE
+    with open(path, "w", encoding="utf-8") as fp:
         json.dump(config, fp, ensure_ascii=False, indent=2)
 
 
@@ -622,7 +639,7 @@ def _log_canal(guild: discord.Guild, tipo: str, config: dict | None = None):
     if not guild:
         return None
     if config is None:
-        config = carregar_config()
+        config = carregar_config(guild.id)
     cid = config.get("global", {}).get("logs", {}).get(tipo)
     if not cid:
         return None
@@ -1012,11 +1029,11 @@ class EditarEmbedModal(Modal):
         self.add_item(self.titulo); self.add_item(self.banner); self.add_item(self.thumbnail)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config[self.ch]["titulo"]    = self.titulo.value
         config[self.ch]["banner"]    = self.banner.value.strip()
         config[self.ch]["thumbnail"] = self.thumbnail.value.strip()
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         cat, _ = split_chave(self.ch)
         await interaction.response.edit_message(embed=build_embed_config_modo(self.ch, config), view=ModoConfigView(self.ch, cat, self.painel_msg))
         await _atualizar_painel(self.painel_msg, config)
@@ -1033,12 +1050,12 @@ class EditarEmbedGlobalModal(Modal):
         self.add_item(self.banner); self.add_item(self.thumbnail); self.add_item(self.cor)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         eg = config["global"].setdefault("embed_global", {})
         eg["banner"]    = self.banner.value.strip()
         eg["thumbnail"] = self.thumbnail.value.strip()
         eg["cor"]       = self.cor.value.strip() or "#2ECC71"
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_embed_global(config), view=EmbedGlobalView(self.painel_msg))
         await _atualizar_painel(self.painel_msg, config)
 
@@ -1073,12 +1090,12 @@ class EditarLayoutModal(Modal):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         cfg = config[self.ch]
         cfg["descricao_template"] = self.descricao.value.strip()
         cfg["thumbnail"]          = self.thumb.value.strip()
         cfg["cor"]                = self.cor.value.strip()
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         cat, _ = split_chave(self.ch)
         await interaction.response.edit_message(
             embed=build_embed_config_modo(self.ch, config),
@@ -1161,10 +1178,10 @@ def _build_embed_botoes(ch: str, config: dict) -> discord.Embed:
 
 
 class BotoesPainelView(View):
-    def __init__(self, ch: str, painel_msg=None, sel_id: str | None = None):
+    def __init__(self, ch: str, painel_msg=None, sel_id: str | None = None, guild_id: int | None = None):
         super().__init__(timeout=300)
         self.ch, self.painel_msg, self.sel_id = ch, painel_msg, sel_id
-        config = carregar_config()
+        config = carregar_config(guild_id)
         entrar = config[ch].get("botoes_entrar", [])
 
         # Normaliza seleção
@@ -1187,8 +1204,8 @@ class BotoesPainelView(View):
             async def _sel_cb(interaction: discord.Interaction):
                 self.sel_id = sel.values[0]
                 await interaction.response.edit_message(
-                    embed=_build_embed_botoes(self.ch, carregar_config()),
-                    view=BotoesPainelView(self.ch, self.painel_msg, self.sel_id),
+                    embed=_build_embed_botoes(self.ch, carregar_config(interaction.guild_id)),
+                    view=BotoesPainelView(self.ch, self.painel_msg, self.sel_id, interaction.guild_id),
                 )
             sel.callback = _sel_cb
             self.add_item(sel)
@@ -1212,7 +1229,7 @@ class EditarBotaoModal(Modal):
                   "sair": "Editar Botão Sair", "limpar": "Editar Botão Limpar"}[alvo]
         super().__init__(title=titulo[:45])
 
-        cfg = carregar_config()[ch]
+        cfg = carregar_config(guild_id)[ch]
         if alvo == "entrar":
             if criar:
                 atual = {"emoji": "", "label": "", "estilo": "secondary"}
@@ -1240,7 +1257,7 @@ class EditarBotaoModal(Modal):
         self._est_default = est_default
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         emoji = self.emoji.value.strip()
         label = self.label.value.strip()
         estilo = _parse_estilo(self.estilo.value) or self._est_default
@@ -1276,10 +1293,10 @@ class EditarBotaoModal(Modal):
             config[self.ch]["botao_limpar"] = novo
             sel_id = None
 
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(
             embed=_build_embed_botoes(self.ch, config),
-            view=BotoesPainelView(self.ch, self.painel_msg, sel_id),
+            view=BotoesPainelView(self.ch, self.painel_msg, sel_id, interaction.guild_id),
         )
         await _atualizar_painel(self.painel_msg, config)
         await _republicar_embeds_modo(self.ch, config)
@@ -1290,7 +1307,7 @@ class _BtnAddEntrar(Button):
         super().__init__(style=discord.ButtonStyle.success, label="Adicionar Entrar", emoji="➕", row=1, disabled=disabled)
         self.ch, self.painel_msg = ch, painel_msg
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "entrar", criar=True))
+        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "entrar", criar=True, guild_id=interaction.guild_id))
 
 
 class _BtnEditEntrar(Button):
@@ -1298,7 +1315,7 @@ class _BtnEditEntrar(Button):
         super().__init__(style=discord.ButtonStyle.primary, label="Editar selecionado", emoji="✏️", row=1, disabled=disabled)
         self.ch, self.painel_msg, self.sel_id = ch, painel_msg, sel_id
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "entrar", btn_id=self.sel_id))
+        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "entrar", btn_id=self.sel_id, guild_id=interaction.guild_id))
 
 
 class _BtnRemoveEntrar(Button):
@@ -1306,7 +1323,7 @@ class _BtnRemoveEntrar(Button):
         super().__init__(style=discord.ButtonStyle.danger, label="Remover selecionado", emoji="🗑️", row=1, disabled=disabled)
         self.ch, self.painel_msg, self.sel_id = ch, painel_msg, sel_id
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         lista = config[self.ch].get("botoes_entrar", [])
         if len(lista) <= 1:
             await interaction.response.send_message("❌ Tem que ter pelo menos 1 botão Entrar.", ephemeral=True)
@@ -1318,10 +1335,10 @@ class _BtnRemoveEntrar(Button):
             config[self.ch]["botao1"] = {k: nova[0].get(k, "") for k in ("emoji", "label", "estilo")}
         if len(nova) >= 2:
             config[self.ch]["botao2"] = {k: nova[1].get(k, "") for k in ("emoji", "label", "estilo")}
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(
             embed=_build_embed_botoes(self.ch, config),
-            view=BotoesPainelView(self.ch, self.painel_msg, None),
+            view=BotoesPainelView(self.ch, self.painel_msg, None, interaction.guild_id),
         )
         await _atualizar_painel(self.painel_msg, config)
         await _republicar_embeds_modo(self.ch, config)
@@ -1332,7 +1349,7 @@ class _BtnEditSair(Button):
         super().__init__(style=discord.ButtonStyle.secondary, label="Editar Sair", emoji="✏️", row=2)
         self.ch, self.painel_msg = ch, painel_msg
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "sair"))
+        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "sair", guild_id=interaction.guild_id))
 
 
 class _BtnEditLimpar(Button):
@@ -1340,7 +1357,7 @@ class _BtnEditLimpar(Button):
         super().__init__(style=discord.ButtonStyle.secondary, label="Editar Limpar", emoji="✏️", row=2)
         self.ch, self.painel_msg = ch, painel_msg
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "limpar"))
+        await interaction.response.send_modal(EditarBotaoModal(self.ch, self.painel_msg, "limpar", guild_id=interaction.guild_id))
 
 
 class _BtnVoltarBotoes(Button):
@@ -1348,7 +1365,7 @@ class _BtnVoltarBotoes(Button):
         super().__init__(style=discord.ButtonStyle.secondary, label="Voltar", emoji="◀️", row=2)
         self.ch, self.painel_msg = ch, painel_msg
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         cat, _ = split_chave(self.ch)
         await interaction.response.edit_message(
             embed=build_embed_config_modo(self.ch, config),
@@ -1418,7 +1435,7 @@ class AdicionarPrecoModal(Modal):
         self.add_item(self.valor)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         linhas = [l.strip() for l in self.valor.value.splitlines() if l.strip()]
         if not linhas:
             await interaction.response.send_message("❌ Você não digitou nenhum preço.", ephemeral=True); return
@@ -1446,13 +1463,13 @@ class AdicionarPrecoModal(Modal):
 
         # Ordena do menor pro maior
         config[self.ch]["precos"] = _ordenar_precos(config[self.ch]["precos"])
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
 
         b1 = config[self.ch]["botao1"]; b2 = config[self.ch]["botao2"]
         for nid in novos_ids:
             bot.add_view(FilaView(self.ch, nid, b1, b2))
 
-        view = GerenciarPrecosView(self.ch, self.painel_msg)
+        view = GerenciarPrecosView(self.ch, self.painel_msg, interaction.guild_id)
         view.selected_id = novos_ids[-1]
         await interaction.response.edit_message(embed=build_embed_gerenciar_precos(self.ch, config, novos_ids[-1]), view=view)
         await _atualizar_painel(self.painel_msg, config)
@@ -1480,15 +1497,15 @@ class EditarPrecoModal(Modal):
                 ephemeral=True,
             ); return
 
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         for p in config[self.ch]["precos"]:
             if p["id"] == self.preco_id:
                 p["valor"] = _formatar_valor_preco(self.valor.value)
                 break
         # Reordena do menor pro maior
         config[self.ch]["precos"] = _ordenar_precos(config[self.ch]["precos"])
-        salvar_config(config)
-        view = GerenciarPrecosView(self.ch, self.gv.painel_msg)
+        salvar_config(config, interaction.guild_id)
+        view = GerenciarPrecosView(self.ch, self.gv.painel_msg, interaction.guild_id)
         view.selected_id = self.preco_id
         await interaction.response.edit_message(embed=build_embed_gerenciar_precos(self.ch, config, self.preco_id), view=view)
         await _atualizar_painel(self.gv.painel_msg, config)
@@ -1496,10 +1513,10 @@ class EditarPrecoModal(Modal):
 
 class EditarListaPrecosModal(Modal):
     """Modal que exibe TODOS os preços atuais (um por linha) para edição em bloco."""
-    def __init__(self, ch: str, painel_msg=None):
+    def __init__(self, ch: str, painel_msg=None, guild_id: int | None = None):
         super().__init__(title=f"Editar Lista de Preços — {display(ch)}"[:45])
         self.ch, self.painel_msg = ch, painel_msg
-        config = carregar_config()
+        config = carregar_config(guild_id)
         precos_atuais = config[ch].get("precos", [])
         texto_atual = "\n".join(p["valor"] for p in precos_atuais)
         self.lista = TextInput(
@@ -1513,7 +1530,7 @@ class EditarListaPrecosModal(Modal):
         self.add_item(self.lista)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         linhas = [l.strip() for l in self.lista.value.splitlines() if l.strip()]
 
         # Separa válidos/inválidos
@@ -1547,7 +1564,7 @@ class EditarListaPrecosModal(Modal):
                 nova_lista.append({"id": gerar_id(), "valor": valor_fmt, "jogadores": []})
 
         config[self.ch]["precos"] = _ordenar_precos(nova_lista)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
 
         # Registra views para preços novos
         b1 = config[self.ch]["botao1"]
@@ -1560,7 +1577,7 @@ class EditarListaPrecosModal(Modal):
         removidos = len(precos_anteriores) - sum(1 for p in nova_lista if p["id"] in ids_antigos)
         adicionados = sum(1 for p in nova_lista if p["id"] not in ids_antigos)
 
-        view = GerenciarPrecosView(self.ch, self.painel_msg)
+        view = GerenciarPrecosView(self.ch, self.painel_msg, interaction.guild_id)
         sel = config[self.ch]["precos"][-1]["id"] if config[self.ch]["precos"] else None
         view.selected_id = sel
         await interaction.response.edit_message(
@@ -1588,14 +1605,14 @@ class CadastrarPixModal(Modal):
         self.add_item(self.nome); self.add_item(self.tipo); self.add_item(self.chave)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config["global"].setdefault("mediadores", {})
         config["global"]["mediadores"][str(interaction.user.id)] = {
             "nome":  self.nome.value.strip(),
             "tipo":  self.tipo.value.strip(),
             "chave": self.chave.value.strip(),
         }
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_mediador(self.painel_med_msg, config)
         await interaction.response.send_message(f"✅ PIX cadastrado!\n• **Nome:** `{self.nome.value}`\n• **Tipo:** `{self.tipo.value}`\n• **Chave:** `{self.chave.value}`", ephemeral=True)
 
@@ -1612,16 +1629,16 @@ class PrecoSelectMenu(Select):
 
     async def callback(self, interaction: discord.Interaction):
         self.parent_view.selected_id = self.values[0]
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_gerenciar_precos(self.parent_view.ch, config, self.parent_view.selected_id), view=self.parent_view)
 
 
 class GerenciarPrecosView(View):
-    def __init__(self, ch: str, painel_msg=None):
+    def __init__(self, ch: str, painel_msg=None, guild_id: int | None = None):
         super().__init__(timeout=300)
         self.ch, self.painel_msg = ch, painel_msg
         self.selected_id = None
-        config = carregar_config()
+        config = carregar_config(guild_id)
         precos = config[ch].get("precos", [])
         if precos:
             self.add_item(PrecoSelectMenu(precos, self))
@@ -1640,7 +1657,7 @@ class _BtnEditarPreco(Button):
     async def callback(self, interaction: discord.Interaction):
         if not self.pv.selected_id:
             await interaction.response.send_message("⚠️ Selecione um preço primeiro!", ephemeral=True); return
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.send_modal(EditarPrecoModal(self.pv.ch, self.pv.selected_id, config, self.pv))
 
 
@@ -1652,14 +1669,14 @@ class _BtnRemoverPreco(Button):
     async def callback(self, interaction: discord.Interaction):
         if not self.pv.selected_id:
             await interaction.response.send_message("⚠️ Selecione um preço primeiro!", ephemeral=True); return
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         ch = self.pv.ch
         preco = next((p for p in config[ch]["precos"] if p["id"] == self.pv.selected_id), None)
         if not preco:
             await interaction.response.send_message("❌ Preço não encontrado.", ephemeral=True); return
         config[ch]["precos"] = [p for p in config[ch]["precos"] if p["id"] != self.pv.selected_id]
-        salvar_config(config)
-        new_view = GerenciarPrecosView(ch, self.pv.painel_msg)
+        salvar_config(config, interaction.guild_id)
+        new_view = GerenciarPrecosView(ch, self.pv.painel_msg, interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_gerenciar_precos(ch, config), view=new_view)
         await interaction.followup.send(f"🗑️ Preço **{preco['valor']}** removido!", ephemeral=True)
         await _atualizar_painel(self.pv.painel_msg, config)
@@ -1680,7 +1697,7 @@ class _BtnEditarListaPrecos(Button):
         self.ch, self.painel_msg = ch, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(EditarListaPrecosModal(self.ch, self.painel_msg))
+        await interaction.response.send_modal(EditarListaPrecosModal(self.ch, self.painel_msg, interaction.guild_id))
 
 
 class _BtnVoltarModo(Button):
@@ -1690,7 +1707,7 @@ class _BtnVoltarModo(Button):
 
     async def callback(self, interaction: discord.Interaction):
         cat, _ = split_chave(self.ch)
-        config  = carregar_config()
+        config  = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_modo(self.ch, config), view=ModoConfigView(self.ch, cat, self.painel_msg))
 
 
@@ -1720,9 +1737,9 @@ class _CanalSelect(ChannelSelect):
 
     async def callback(self, interaction: discord.Interaction):
         canal = self.values[0]
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config[self.ch]["canal_id"] = canal.id
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         cat, _ = split_chave(self.ch)
         await interaction.response.edit_message(embed=build_embed_config_modo(self.ch, config), view=ModoConfigView(self.ch, cat, self.painel_msg))
         await interaction.followup.send(f"✅ Canal definido: {canal.mention}", ephemeral=True)
@@ -1736,7 +1753,7 @@ class _BtnEditarEmbed(Button):
         self.ch, self.painel_msg = ch, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.send_modal(EditarEmbedModal(self.ch, config, self.painel_msg))
 
 
@@ -1747,10 +1764,10 @@ class _BtnEditarBotoes(Button):
         self.ch, self.painel_msg = ch, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(
             embed=_build_embed_botoes(self.ch, config),
-            view=BotoesPainelView(self.ch, self.painel_msg),
+            view=BotoesPainelView(self.ch, self.painel_msg, guild_id=interaction.guild_id),
         )
 
 
@@ -1761,7 +1778,7 @@ class _BtnEditarLayout(Button):
         self.ch, self.painel_msg = ch, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.send_modal(EditarLayoutModal(self.ch, config, self.painel_msg))
 
 
@@ -1789,7 +1806,7 @@ class _BtnVisualizar(Button):
         self.ch = ch
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         cfg = config[self.ch]
         precos = cfg.get("precos", [])
         if not precos:
@@ -1813,8 +1830,8 @@ class _BtnGerenciarPrecos(Button):
         self.ch, self.painel_msg = ch, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
-        await interaction.response.edit_message(embed=build_embed_gerenciar_precos(self.ch, config), view=GerenciarPrecosView(self.ch, self.painel_msg))
+        config = carregar_config(interaction.guild_id)
+        await interaction.response.edit_message(embed=build_embed_gerenciar_precos(self.ch, config), view=GerenciarPrecosView(self.ch, self.painel_msg, interaction.guild_id))
 
 
 class _BtnVoltarCategoria(Button):
@@ -1824,7 +1841,7 @@ class _BtnVoltarCategoria(Button):
         self.cat, self.painel_msg = cat, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_categoria(self.cat, config), view=CategoriaView(self.cat, self.painel_msg))
 
 
@@ -1842,10 +1859,10 @@ class _BtnImportarPersonalizacao(Button):
         self.ch, self.cat, self.painel_msg = ch, cat, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(
             embed=_build_embed_importar(self.ch, config, sel_ch=None),
-            view=ImportarPersonalizacaoView(self.ch, self.cat, self.painel_msg, sel_ch=None),
+            view=ImportarPersonalizacaoView(self.ch, self.cat, self.painel_msg, sel_ch=None, guild_id=interaction.guild_id),
         )
 
 
@@ -1879,11 +1896,12 @@ def _build_embed_importar(dest_ch: str, config: dict, sel_ch: str | None) -> dis
 
 
 class ImportarPersonalizacaoView(View):
-    def __init__(self, dest_ch: str, cat: str, painel_msg, sel_ch: str | None):
+    def __init__(self, dest_ch: str, cat: str, painel_msg, sel_ch: str | None, guild_id: int | None = None):
         super().__init__(timeout=300)
         self.dest_ch, self.cat, self.painel_msg = dest_ch, cat, painel_msg
         self.sel_ch = sel_ch
-        config = carregar_config()
+        self.guild_id = guild_id
+        config = carregar_config(guild_id)
 
         # Monta opções: todos os modos EXCETO o próprio dest_ch
         opts = []
@@ -1904,10 +1922,10 @@ class ImportarPersonalizacaoView(View):
 
         async def _sel_cb(interaction: discord.Interaction):
             self.sel_ch = sel.values[0]
-            cfg = carregar_config()
+            cfg = carregar_config(interaction.guild_id)
             await interaction.response.edit_message(
                 embed=_build_embed_importar(self.dest_ch, cfg, self.sel_ch),
-                view=ImportarPersonalizacaoView(self.dest_ch, self.cat, self.painel_msg, self.sel_ch),
+                view=ImportarPersonalizacaoView(self.dest_ch, self.cat, self.painel_msg, self.sel_ch, guild_id=self.guild_id),
             )
         sel.callback = _sel_cb
         self.add_item(sel)
@@ -1925,7 +1943,7 @@ class _BtnConfirmarImportar(Button):
         if not self.src_ch:
             await interaction.response.send_message("❌ Selecione uma origem primeiro.", ephemeral=True)
             return
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if self.src_ch not in config:
             await interaction.response.send_message("❌ Fila de origem não encontrada.", ephemeral=True)
             return
@@ -1942,7 +1960,7 @@ class _BtnConfirmarImportar(Button):
                 ]
             else:
                 config[self.dest_ch][campo] = copy.deepcopy(src[campo])
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(
             embed=build_embed_config_modo(self.dest_ch, config),
             view=ModoConfigView(self.dest_ch, self.cat, self.painel_msg),
@@ -1961,7 +1979,7 @@ class _BtnCancelarImportar(Button):
         self.dest_ch, self.cat, self.painel_msg = dest_ch, cat, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(
             embed=build_embed_config_modo(self.dest_ch, config),
             view=ModoConfigView(self.dest_ch, self.cat, self.painel_msg),
@@ -1987,7 +2005,7 @@ class _BtnModoConfig(Button):
 
     async def callback(self, interaction: discord.Interaction):
         ch     = chave(self.cat, self.modo)
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_modo(ch, config), view=ModoConfigView(ch, self.cat, self.painel_msg))
 
 
@@ -1997,8 +2015,8 @@ class _BtnVoltarPainelDaCategoria(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
-        await interaction.response.edit_message(embed=build_embed_painel_geral(config), view=PainelPrincipalView(self.painel_msg))
+        config = carregar_config(interaction.guild_id)
+        await interaction.response.edit_message(embed=build_embed_painel_geral(config), view=PainelPrincipalView(self.painel_msg, interaction.guild_id))
 
 
 # ──────────────────────────────────────────────
@@ -2057,9 +2075,9 @@ class _RoleSelectAutorole(RoleSelect):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config["global"]["cargo_autorole_id"] = self.values[0].id if self.values else None
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_autorole(config), view=ConfigAutoroleView(self.painel_msg))
         txt = f"✅ Autorole definido: {self.values[0].mention}" if self.values else "✅ Autorole removido."
         await interaction.followup.send(txt, ephemeral=True)
@@ -2072,7 +2090,7 @@ class _BtnAbrirAutorole(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_autorole(config), view=ConfigAutoroleView(self.painel_msg))
 
 
@@ -2082,7 +2100,7 @@ class _BtnVoltarConfigGeral(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
 
 
@@ -2144,9 +2162,9 @@ class _CanalSelectLog(ChannelSelect):
         self.pagina     = pagina
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config["global"].setdefault("logs", {})[self.chave] = self.values[0].id if self.values else None
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(
             embed=build_embed_config_logs(config, self.pagina),
             view=ConfigLogsView(self.painel_msg, self.pagina),
@@ -2164,7 +2182,7 @@ class _BtnLogsProximaPagina(Button):
         self.pagina     = pagina
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         nova = self.pagina + 1
         await interaction.response.edit_message(
             embed=build_embed_config_logs(config, nova),
@@ -2179,7 +2197,7 @@ class _BtnLogsPaginaAnterior(Button):
         self.pagina     = pagina
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         nova = self.pagina - 1
         await interaction.response.edit_message(
             embed=build_embed_config_logs(config, nova),
@@ -2193,7 +2211,7 @@ class _BtnVoltarConfigGeralFromLogs(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
 
 
@@ -2203,7 +2221,7 @@ class _BtnAbrirLogs(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_logs(config, 0), view=ConfigLogsView(self.painel_msg, 0))
 
 
@@ -2213,9 +2231,9 @@ class _RoleSelectMax(RoleSelect):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config["global"]["cargo_max_id"] = self.values[0].id if self.values else None
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
         txt = f"✅ Permissão máxima: {self.values[0].mention}" if self.values else "✅ Permissão máxima removida."
         await interaction.followup.send(txt, ephemeral=True)
@@ -2228,9 +2246,9 @@ class _RoleSelectAdm(RoleSelect):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config["global"]["cargo_adm_id"] = self.values[0].id if self.values else None
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
         txt = f"✅ Cargo ADM: {self.values[0].mention}" if self.values else "✅ Cargo ADM removido."
         await interaction.followup.send(txt, ephemeral=True)
@@ -2243,9 +2261,9 @@ class _RoleSelectMediador(RoleSelect):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config["global"]["cargo_mediador_id"] = self.values[0].id if self.values else None
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
         txt = f"✅ Cargo Mediador: {self.values[0].mention}" if self.values else "✅ Cargo Mediador removido."
         await interaction.followup.send(txt, ephemeral=True)
@@ -2258,9 +2276,9 @@ class _CanalSelectCategoria(ChannelSelect):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config["global"]["categoria_id"] = self.values[0].id if self.values else None
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
         txt = f"✅ Categoria: **{self.values[0].name}**" if self.values else "✅ Categoria removida."
         await interaction.followup.send(txt, ephemeral=True)
@@ -2273,8 +2291,8 @@ class _BtnVoltarPainelGeral(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
-        await interaction.response.edit_message(embed=build_embed_painel_geral(config), view=PainelPrincipalView(self.painel_msg))
+        config = carregar_config(interaction.guild_id)
+        await interaction.response.edit_message(embed=build_embed_painel_geral(config), view=PainelPrincipalView(self.painel_msg, interaction.guild_id))
 
 
 # ──────────────────────────────────────────────
@@ -2295,7 +2313,7 @@ class _BtnEditarEmbedGlobal(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.send_modal(EditarEmbedGlobalModal(config, self.painel_msg))
 
 
@@ -2305,8 +2323,8 @@ class _BtnVoltarPainelDeEmbedGlobal(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
-        await interaction.response.edit_message(embed=build_embed_painel_geral(config), view=PainelPrincipalView(self.painel_msg))
+        config = carregar_config(interaction.guild_id)
+        await interaction.response.edit_message(embed=build_embed_painel_geral(config), view=PainelPrincipalView(self.painel_msg, interaction.guild_id))
 
 
 # ──────────────────────────────────────────────
@@ -2314,7 +2332,7 @@ class _BtnVoltarPainelDeEmbedGlobal(Button):
 # ──────────────────────────────────────────────
 
 class PainelPrincipalView(View):
-    def __init__(self, painel_msg=None):
+    def __init__(self, painel_msg=None, guild_id: int | None = None):
         super().__init__(timeout=600)
         self.painel_msg = painel_msg
         # Row 0: categorias
@@ -2323,7 +2341,7 @@ class PainelPrincipalView(View):
         # Row 1: ações globais
         self.add_item(_BtnConfigGeral(painel_msg))
         self.add_item(_BtnEmbedGlobal(painel_msg))
-        self.add_item(_BtnFilasToggle(painel_msg))
+        self.add_item(_BtnFilasToggle(painel_msg, guild_id))
         self.add_item(_BtnPublicar(painel_msg))
         self.add_item(_BtnPersonalizarPainel(painel_msg))
 
@@ -2340,7 +2358,7 @@ class _BtnCategoria(Button):
         self.cat, self.painel_msg = cat, painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_categoria(self.cat, config), view=CategoriaView(self.cat, self.painel_msg))
 
 
@@ -2351,7 +2369,7 @@ class _BtnConfigGeral(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_geral(config), view=ConfigGeralView(self.painel_msg))
 
 
@@ -2362,13 +2380,13 @@ class _BtnEmbedGlobal(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_config_embed_global(config), view=EmbedGlobalView(self.painel_msg))
 
 
 class _BtnFilasToggle(Button):
-    def __init__(self, painel_msg):
-        config = carregar_config()
+    def __init__(self, painel_msg, guild_id: int | None = None):
+        config = carregar_config(guild_id)
         ativas = config.get("global", {}).get("filas_ativas", True)
         super().__init__(
             style=discord.ButtonStyle.danger if ativas else discord.ButtonStyle.success,
@@ -2380,13 +2398,13 @@ class _BtnFilasToggle(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         atual = config["global"].get("filas_ativas", True)
         config["global"]["filas_ativas"] = not atual
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
 
         # Atualiza painel
-        view = PainelPrincipalView(self.painel_msg)
+        view = PainelPrincipalView(self.painel_msg, interaction.guild_id)
         view.set_message(self.painel_msg)
         await interaction.response.edit_message(embed=build_embed_painel_geral(config), view=view)
 
@@ -2406,7 +2424,7 @@ class _BtnPersonalizarPainel(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
         embed = discord.Embed(
@@ -2432,7 +2450,7 @@ class _BtnPublicar(Button):
         self.painel_msg = painel_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
         await interaction.response.defer(ephemeral=True)
@@ -2462,7 +2480,7 @@ class FilaView(View):
         """
         super().__init__(timeout=None)
         if config is None:
-            config = carregar_config()
+            config = carregar_config(guild_id)
         cm = config.get(ch, {})
         entrar = cm.get("botoes_entrar", [])
         bs = cm.get("botao_sair",   {"emoji": "❌",  "label": "Sair da fila", "estilo": "danger"})
@@ -2498,7 +2516,7 @@ class _EntrarBtn(Button):
         self.ch, self.preco_id, self.btn_id = ch, preco_id, btn_id
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
 
         if not config.get("global", {}).get("filas_ativas", True):
             await interaction.response.send_message("🛑 As filas estão **desativadas** no momento.", ephemeral=True); return
@@ -2516,7 +2534,7 @@ class _EntrarBtn(Button):
             await interaction.response.send_message("❌ A fila está cheia!", ephemeral=True); return
 
         preco["jogadores"].append(uid)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
 
         b1, b2 = config[ch]["botao1"], config[ch]["botao2"]
         view   = FilaView(ch, self.preco_id, b1, b2)
@@ -2525,7 +2543,7 @@ class _EntrarBtn(Button):
         if len(preco["jogadores"]) >= total:
             jogadores_partida = list(preco["jogadores"])
             preco["jogadores"] = []
-            salvar_config(config)
+            salvar_config(config, interaction.guild_id)
             view2 = FilaView(ch, self.preco_id, b1, b2)
             await interaction.edit_original_response(embed=build_embed_fila(ch, preco, config), view=view2)
             await _fila_completa(interaction, ch, preco, jogadores_partida, config)
@@ -2543,7 +2561,7 @@ class _SairBtn(Button):
         self.preco_id = preco_id
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         ch, preco = encontrar_preco(config, self.preco_id)
         if preco is None:
             await interaction.response.send_message("❌ Esta fila não existe mais.", ephemeral=True); return
@@ -2551,7 +2569,7 @@ class _SairBtn(Button):
         if uid not in preco["jogadores"]:
             await interaction.response.send_message("⚠️ Você não está nesta fila!", ephemeral=True); return
         preco["jogadores"].remove(uid)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         b1, b2 = config[ch]["botao1"], config[ch]["botao2"]
         await interaction.response.edit_message(embed=build_embed_fila(ch, preco, config), view=FilaView(ch, self.preco_id, b1, b2))
 
@@ -2568,14 +2586,14 @@ class _LimparBtn(Button):
         self.preco_id = preco_id
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
         ch, preco = encontrar_preco(config, self.preco_id)
         if preco is None:
             await interaction.response.send_message("❌ Esta fila não existe mais.", ephemeral=True); return
         preco["jogadores"] = []
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         b1, b2 = config[ch]["botao1"], config[ch]["botao2"]
         await interaction.response.edit_message(embed=build_embed_fila(ch, preco, config), view=FilaView(ch, self.preco_id, b1, b2))
         await interaction.followup.send(f"🗑️ Fila limpa por {interaction.user.mention}.")
@@ -2660,12 +2678,13 @@ async def _atualizar_painel_mediador(painel_med_msg, config):
 
 class EditarPainelEmbedModal(Modal):
     """Modal compartilhado para editar título/banner/thumbnail dos painéis (streamer e mediador)."""
-    def __init__(self, key: str, default_titulo: str, alvo: str):
+    def __init__(self, key: str, default_titulo: str, alvo: str, guild_id: int | None = None):
         super().__init__(title=f"Editar Embed — {alvo.title()}")
         self.key  = key   # "painel_streamer_embed" ou "painel_mediador_embed"
         self.alvo = alvo  # "streamer" ou "mediador"
+        self.guild_id = guild_id
 
-        config = carregar_config()
+        config = carregar_config(guild_id)
         cur = config.get("global", {}).get(key, {})
 
         self.titulo = TextInput(
@@ -2691,12 +2710,12 @@ class EditarPainelEmbedModal(Modal):
         self.add_item(self.thumbnail)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         cur = config["global"].setdefault(self.key, {})
         cur["titulo"]    = self.titulo.value.strip()
         cur["banner"]    = self.banner.value.strip()
         cur["thumbnail"] = self.thumbnail.value.strip()
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
 
         # Atualiza o painel correspondente
         if self.alvo == "streamer":
@@ -2726,11 +2745,11 @@ class _BtnEditarEmbedMediador(Button):
         self.painel_med_msg = painel_med_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Apenas administradores podem editar o embed.", ephemeral=True); return
         await interaction.response.send_modal(
-            EditarPainelEmbedModal("painel_mediador_embed", "🤝  Painel de Mediadores", alvo="mediador")
+            EditarPainelEmbedModal("painel_mediador_embed", "🤝  Painel de Mediadores", alvo="mediador", guild_id=interaction.guild_id)
         )
 
 
@@ -2740,7 +2759,7 @@ class _BtnCadastrarPix(Button):
         self.painel_med_msg = painel_med_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_e_mediador(interaction.user, config):
             await interaction.response.send_message("❌ Apenas mediadores podem usar este painel.", ephemeral=True); return
         await interaction.response.send_modal(CadastrarPixModal(self.painel_med_msg))
@@ -2752,7 +2771,7 @@ class _BtnEntrarFilaMediador(Button):
         self.painel_med_msg = painel_med_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_e_mediador(interaction.user, config):
             await interaction.response.send_message("❌ Apenas mediadores podem usar este painel.", ephemeral=True); return
 
@@ -2765,7 +2784,7 @@ class _BtnEntrarFilaMediador(Button):
             await interaction.response.send_message("⚠️ Você já está na fila de mediadores!", ephemeral=True); return
 
         fila.append(uid)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_mediador(self.painel_med_msg, config)
         await interaction.response.send_message(f"✅ Você entrou na fila de mediadores! Posição: **#{len(fila)}**", ephemeral=True)
         # ── LOG: mediador entrou ──
@@ -2781,13 +2800,13 @@ class _BtnSairFilaMediador(Button):
         self.painel_med_msg = painel_med_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         uid = str(interaction.user.id)
         fila = config["global"].setdefault("fila_mediador", [])
         if uid not in fila:
             await interaction.response.send_message("⚠️ Você não está na fila!", ephemeral=True); return
         fila.remove(uid)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_mediador(self.painel_med_msg, config)
         await interaction.response.send_message("✅ Você saiu da fila de mediadores.", ephemeral=True)
         # ── LOG: mediador saiu ──
@@ -2803,11 +2822,11 @@ class _BtnLimparFilaMediador(Button):
         self.painel_med_msg = painel_med_msg
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão!", ephemeral=True); return
         config["global"]["fila_mediador"] = []
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_mediador(self.painel_med_msg, config)
         await interaction.response.send_message("🗑️ Fila de mediadores limpa.", ephemeral=True)
 
@@ -2902,11 +2921,12 @@ class ConfirmarPartidaView(View):
         # Devolve o mediador à fila se ele tinha sido puxado (a partida não rolou)
         if self.mediador_uid:
             try:
-                cfg = carregar_config()
+                _gid = getattr(getattr(self.canal_partida, "guild", None), "id", None)
+                cfg = carregar_config(_gid)
                 fila = cfg["global"].setdefault("fila_mediador", [])
                 if self.mediador_uid not in fila:
                     fila.insert(0, self.mediador_uid)
-                    salvar_config(cfg)
+                    salvar_config(cfg, _gid)
             except Exception:
                 pass
 
@@ -2968,7 +2988,7 @@ class _BtnCancelarAposta(Button):
         # Devolve o mediador à fila se ele tinha sido puxado
         if self.pv.mediador_uid:
             try:
-                cfg = carregar_config()
+                cfg = carregar_config(interaction.guild_id)
                 fila = cfg["global"].setdefault("fila_mediador", [])
                 if self.pv.mediador_uid not in fila:
                     fila.insert(0, self.pv.mediador_uid)
@@ -3031,7 +3051,7 @@ async def _fila_completa(interaction: discord.Interaction, ch: str, preco: dict,
         mediador_uid = fila_med.pop(0)
         mediadores = global_cfg.get("mediadores", {})
         mediador_data = mediadores.get(str(mediador_uid))
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         # Atualiza painéis de mediador publicados
         await _atualizar_painel_mediador(None, config)
 
@@ -3192,14 +3212,15 @@ async def _verificar_keys_expiradas():
 async def _renovar_filas_on():
     while True:
         await asyncio.sleep(300)
-        config = carregar_config()
-        ativas = config.get("global", {}).get("filas_ativas", True)
-        texto = "@everyone\n# 🟢 FILAS ON" if ativas else "# 🛑 FILAS OFF\n-# entrada desabilitada"
         for canal_id, msg_id in list(_filas_on_msgs.items()):
             try:
                 canal = bot.get_channel(canal_id)
                 if not canal:
                     continue
+                _gid = canal.guild.id if canal.guild else None
+                config = carregar_config(_gid)
+                ativas = config.get("global", {}).get("filas_ativas", True)
+                texto = "@everyone\n# 🟢 FILAS ON" if ativas else "# 🛑 FILAS OFF\n-# entrada desabilitada"
                 try:
                     antiga = await canal.fetch_message(msg_id)
                     await antiga.delete()
@@ -3244,7 +3265,7 @@ async def _publicar_filas(interaction: discord.Interaction, config: dict):
             _filas_msg_ids[preco["id"]] = (canal.id, msg.id)
             publicados.append(f"{EMOJI_CATEGORIA[split_chave(ch)[0]]} **{display(ch)}** `{preco['valor']}` → {canal.mention}")
             await asyncio.sleep(0.3)
-    salvar_config(config)
+    salvar_config(config, interaction.guild_id)
 
     # Status (FILAS ON / OFF) em cada canal único
     ativas = config.get("global", {}).get("filas_ativas", True)
@@ -3372,7 +3393,7 @@ class _BtnStreamerJogarContra(Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         s = config["global"]["streamer"]
         if not s.get("aberta"):
             await interaction.response.send_message("🛑 A fila do streamer está **fechada** no momento.", ephemeral=True); return
@@ -3390,7 +3411,7 @@ class _BtnStreamerJogarContra(Button):
             ); return
 
         s["fila"].append(uid)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_streamer(config)
         await interaction.response.send_message(
             f"✅ Desafio aberto! Você está na posição **#{len(s['fila'])}**.",
@@ -3411,7 +3432,7 @@ class _BtnStreamerGear(Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         # Streamer ou admin → painel completo. Usuário comum → ações de jogador.
         if _streamer_pode_controlar(interaction.user, config):
             await interaction.response.send_message(
@@ -3451,7 +3472,7 @@ class _BtnEditarEmbedStreamer(Button):
         super().__init__(label="Editar Embed", emoji="✏️", style=discord.ButtonStyle.secondary, custom_id="streamer_editar_embed", row=2)
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Apenas administradores podem editar o embed.", ephemeral=True); return
         await interaction.response.send_modal(EditarEmbedStreamerModal())
@@ -3462,7 +3483,7 @@ class _BtnEditarBotoesStreamer(Button):
         super().__init__(label="Editar Botões", emoji="🎨", style=discord.ButtonStyle.secondary, custom_id="streamer_editar_botoes", row=2)
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Apenas administradores podem editar os botões.", ephemeral=True); return
         await interaction.response.send_message(
@@ -3516,7 +3537,7 @@ class EditarEmbedStreamerModal(Modal):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
         cur = config["global"].setdefault("painel_streamer_embed", {})
@@ -3525,7 +3546,7 @@ class EditarEmbedStreamerModal(Modal):
         cur["info_jogo"]  = self.info_jogo.value.strip()
         cur["instrucoes"] = self.instrucoes.value.strip()
         cur["thumbnail"]  = self.thumbnail.value.strip()
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_streamer(config)
         await interaction.response.send_message("✅ Embed do painel do streamer atualizado!", ephemeral=True)
 
@@ -3579,14 +3600,14 @@ class EditarBotoesStreamerPrincipalModal(Modal):
         self.add_item(self.b_gear)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
         b = config["global"].setdefault("painel_streamer_botoes", {})
         e_j, l_j = parse_emoji_label(self.b_jogar.value)
         b["jogar_contra"] = {"emoji": e_j, "label": l_j}
         b["gear"] = {"emoji": self.b_gear.value.strip() or "⚙️", "label": ""}
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_streamer(config)
         await interaction.response.send_message("✅ Botão **Jogar Contra** e engrenagem atualizados!", ephemeral=True)
 
@@ -3607,7 +3628,7 @@ class EditarBotoesStreamerAdminModal(Modal):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
         b = config["global"].setdefault("painel_streamer_botoes", {})
@@ -3616,7 +3637,7 @@ class EditarBotoesStreamerAdminModal(Modal):
                        ("toggle", self.b_toggle.value)):
             e, lbl = parse_emoji_label(txt)
             b[k] = {"emoji": e, "label": lbl}
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.send_message("✅ Botões administrativos atualizados!", ephemeral=True)
 
 
@@ -3631,13 +3652,13 @@ class _BtnStreamerSair(Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         s = config["global"]["streamer"]
         uid = str(interaction.user.id)
         if uid not in s.get("fila", []):
             await interaction.response.send_message("⚠️ Você não está na fila!", ephemeral=True); return
         s["fila"].remove(uid)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_streamer(config)
         await interaction.response.send_message("✅ Você saiu da fila.", ephemeral=True)
 
@@ -3653,7 +3674,7 @@ class _BtnStreamerProximo(Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not _streamer_pode_controlar(interaction.user, config):
             await interaction.response.send_message("❌ Apenas o **streamer** ou **admin** podem chamar o próximo.", ephemeral=True); return
 
@@ -3666,7 +3687,7 @@ class _BtnStreamerProximo(Button):
 
         chamados = s["fila"][:n_pull]
         s["fila"] = s["fila"][n_pull:]
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_streamer(config)
 
         await interaction.response.defer(ephemeral=True)
@@ -3688,12 +3709,12 @@ class _BtnStreamerAbrirFechar(Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not _streamer_pode_controlar(interaction.user, config):
             await interaction.response.send_message("❌ Apenas o **streamer** ou **admin** podem alterar o status.", ephemeral=True); return
         s = config["global"]["streamer"]
         s["aberta"] = not s.get("aberta", False)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_streamer(config)
         await interaction.response.send_message(
             "🟢 Fila **ABERTA**!" if s["aberta"] else "🛑 Fila **FECHADA**.",
@@ -3706,7 +3727,7 @@ class _BtnStreamerConfigurar(Button):
         super().__init__(label="Configurar Streamer/Modo", emoji="🎥", style=discord.ButtonStyle.secondary, row=1)
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Apenas administradores podem configurar.", ephemeral=True); return
         await interaction.response.send_message(
@@ -3729,9 +3750,9 @@ class _StreamerUserSelect(discord.ui.UserSelect):
         super().__init__(placeholder="🎥 Selecione o streamer...", min_values=0, max_values=1, row=0)
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config["global"]["streamer"]["user_id"] = self.values[0].id if self.values else None
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_streamer(config)
         txt = f"✅ Streamer definido: {self.values[0].mention}" if self.values else "✅ Streamer removido."
         await interaction.response.send_message(txt, ephemeral=True)
@@ -3743,9 +3764,9 @@ class _StreamerModoSelect(Select):
         super().__init__(placeholder="🎮 Selecione o modo...", options=opts, min_values=1, max_values=1, row=1)
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config["global"]["streamer"]["modo"] = self.values[0]
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_streamer(config)
         await interaction.response.send_message(f"✅ Modo definido: **{self.values[0]}**", ephemeral=True)
 
@@ -3755,9 +3776,9 @@ class _BtnLimparFilaStreamer(Button):
         super().__init__(label="Limpar Fila", emoji="🗑️", style=discord.ButtonStyle.danger, row=2)
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config["global"]["streamer"]["fila"] = []
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await _atualizar_painel_streamer(config)
         await interaction.response.send_message("🗑️ Fila do streamer limpa.", ephemeral=True)
 
@@ -3877,7 +3898,7 @@ class ApelidoModal(Modal):
             await interaction.response.send_message("❌ Bot sem permissão **Change Nickname**.", ephemeral=True); return
         except discord.HTTPException as e:
             await interaction.response.send_message(f"❌ Discord recusou: `{e}`", ephemeral=True); return
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         try:
             await interaction.response.edit_message(embed=build_embed_aparencia(self.guild, config), view=AparenciaView())
         except Exception:
@@ -3903,7 +3924,7 @@ class AvatarUrlModal(Modal):
             await self.guild.me.edit(avatar=data)
         except discord.HTTPException as e:
             await interaction.followup.send(f"❌ Discord recusou: `{e}`", ephemeral=True); return
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         try:
             await interaction.message.edit(embed=build_embed_aparencia(self.guild, config), view=AparenciaView())
         except Exception:
@@ -3930,7 +3951,7 @@ class BannerUrlModal(Modal):
             await self.guild.me.edit(banner=data)
         except discord.HTTPException as e:
             await interaction.followup.send(f"❌ Discord recusou: `{e}`", ephemeral=True); return
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         try:
             await interaction.message.edit(embed=build_embed_aparencia(self.guild, config), view=AparenciaView())
         except Exception:
@@ -3953,10 +3974,10 @@ class BioModal(Modal):
         self.add_item(self.bio)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         ap = config.setdefault("aparencias", {}).setdefault(str(self.guild.id), {})
         ap["bio"] = self.bio.value.strip()
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_aparencia(self.guild, config), view=AparenciaView())
 
 
@@ -3999,7 +4020,7 @@ class _BtnEditarBio(Button):
         super().__init__(label="Bio", emoji="📝", style=discord.ButtonStyle.secondary, row=1)
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.send_modal(BioModal(interaction.guild, config))
 
 
@@ -4013,9 +4034,9 @@ class _BtnResetarAparencia(Button):
             await interaction.guild.me.edit(nick=None, avatar=None, banner=None)
         except discord.HTTPException:
             pass
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config.setdefault("aparencias", {}).pop(str(interaction.guild.id), None)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         try:
             await interaction.message.edit(embed=build_embed_aparencia(interaction.guild, config), view=AparenciaView())
         except Exception:
@@ -4037,18 +4058,38 @@ class MyBot(discord.Client):
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
-        config = carregar_config()
-        for ch in ALL_MODOS:
-            b1 = config[ch]["botao1"]
-            b2 = config[ch]["botao2"]
-            for preco in config[ch].get("precos", []):
-                self.add_view(FilaView(ch, preco["id"], b1, b2))
-        # Painel mediador persistente
+        # Registra views persistentes para cada servidor com config salva
+        for guild_path in GUILDS_DIR.glob("*/config.json"):
+            try:
+                _gid = int(guild_path.parent.name)
+                _cfg = carregar_config(_gid)
+                for ch in ALL_MODOS:
+                    try:
+                        b1 = _cfg[ch]["botao1"]
+                        b2 = _cfg[ch]["botao2"]
+                        for preco in _cfg[ch].get("precos", []):
+                            self.add_view(FilaView(ch, preco["id"], b1, b2))
+                    except Exception:
+                        pass
+                self.add_view(PainelTicketsPublicoView(_cfg))
+            except Exception as e:
+                print(f"⚠️ setup_hook guild {guild_path.parent.name}: {e}")
+        # Fallback global para primeiro boot
+        try:
+            _gcfg = carregar_config()
+            for ch in ALL_MODOS:
+                try:
+                    b1 = _gcfg[ch]["botao1"]
+                    b2 = _gcfg[ch]["botao2"]
+                    for preco in _gcfg[ch].get("precos", []):
+                        self.add_view(FilaView(ch, preco["id"], b1, b2))
+                except Exception:
+                    pass
+            self.add_view(PainelTicketsPublicoView(_gcfg))
+        except Exception:
+            pass
         self.add_view(PainelMediadorView())
-        # Painel streamer persistente
         self.add_view(PainelStreamerView())
-        # Painel de tickets persistente (botões de abrir + botão de fechar)
-        self.add_view(PainelTicketsPublicoView(config))
         self.add_view(_FecharTicketView())
         # IMPORTANTE: não sincronizar globalmente para evitar comandos duplicados
         # (a sincronização será feita por servidor em on_ready / on_guild_join)
@@ -4072,6 +4113,17 @@ class MyBot(discord.Client):
 
     async def on_ready(self):
         print(f"🤖 Bot conectado como {self.user} (ID: {self.user.id})")
+        # ─── Migrar config global → por servidor (primeira execução) ───
+        _global_cfg = carregar_config()
+        for _guild in self.guilds:
+            _guild_p = _guild_config_path(_guild.id)
+            if not _guild_p.exists():
+                try:
+                    import copy as _cp
+                    salvar_config(_cp.deepcopy(_global_cfg), _guild.id)
+                    print(f"📋 Config migrada para '{_guild.name}' ({_guild.id})")
+                except Exception as _me:
+                    print(f"⚠️ Migração falhou para '{_guild.name}': {_me}")
         # Apaga comandos globais registrados na Discord (sem mexer na árvore local)
         # — isto remove duplicatas que apareciam por terem sido registradas como
         # global E por servidor em versões anteriores do bot.
@@ -4145,7 +4197,7 @@ class MyBot(discord.Client):
 
         # ── Log de entrada ───────────────────────────────────────────
         try:
-            cfg = carregar_config()
+            cfg = carregar_config(member.guild.id)
             conta_criada = discord.utils.format_dt(member.created_at, style="R") if member.created_at else "—"
             total_membros = member.guild.member_count
 
@@ -4179,7 +4231,7 @@ class MyBot(discord.Client):
 
         # ── Autorole ─────────────────────────────────────────────────
         try:
-            cfg = carregar_config()
+            cfg = carregar_config(member.guild.id)
             cargo_id = cfg.get("global", {}).get("cargo_autorole_id")
             if not cargo_id:
                 return
@@ -4311,7 +4363,7 @@ class PersonalizarPainelPrincipalModal(Modal):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
         _salvar_btn(config, "config_geral", self.b1.value)
@@ -4319,7 +4371,7 @@ class PersonalizarPainelPrincipalModal(Modal):
         _salvar_btn(config, "filas_on",     self.b3.value)
         _salvar_btn(config, "filas_off",    self.b4.value)
         _salvar_btn(config, "publicar",     self.b5.value)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.send_message("✅ Botões do painel principal atualizados! Reabra o painel pra ver.", ephemeral=True)
 
 
@@ -4335,7 +4387,7 @@ class PersonalizarPainelModoModal(Modal):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
         _salvar_btn(config, "editar_embed",  self.b1.value)
@@ -4343,7 +4395,7 @@ class PersonalizarPainelModoModal(Modal):
         _salvar_btn(config, "texto_layout",  self.b3.value)
         _salvar_btn(config, "placeholders",  self.b4.value)
         _salvar_btn(config, "personalizar",  self.b5.value)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.send_message("✅ Botões do painel do modo atualizados! Reabra o painel pra ver.", ephemeral=True)
 
 
@@ -4357,19 +4409,19 @@ class PersonalizarPainelExtrasModal(Modal):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Sem permissão.", ephemeral=True); return
         _salvar_btn(config, "visualizar", self.b1.value)
         _salvar_btn(config, "precos",     self.b2.value)
         _salvar_btn(config, "voltar",     self.b3.value)
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.send_message("✅ Botões auxiliares atualizados! Reabra o painel pra ver.", ephemeral=True)
 
 
 async def _check_pode_admin(interaction: discord.Interaction) -> bool:
     try:
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if usuario_pode_admin(interaction.user, config):
             return True
         await interaction.response.send_message("❌ Você não tem permissão para usar este comando.", ephemeral=True)
@@ -4392,7 +4444,7 @@ async def _check_plano(interaction: discord.Interaction, feature: str) -> bool:
         if interaction.user.id == BOT_OWNER_ID:
             return True
 
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Você não tem permissão para usar este comando.", ephemeral=True)
             return False
@@ -4524,9 +4576,9 @@ def build_embed_tickets_admin(config: dict) -> discord.Embed:
 # ─── Modais de edição ────────────────────────────
 
 class EditarEmbedTicketsModal(Modal, title="Editar Embed do Painel"):
-    def __init__(self, painel_msg):
+    def __init__(self, painel_msg, guild_id: int | None = None):
         super().__init__()
-        config = carregar_config()
+        config = carregar_config(guild_id)
         e = config["global"]["tickets"]["embed"]
         self.painel_msg = painel_msg
         self.titulo    = TextInput(label="Título",    default=e.get("titulo", ""),    max_length=200, required=False)
@@ -4539,15 +4591,15 @@ class EditarEmbedTicketsModal(Modal, title="Editar Embed do Painel"):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         e = config["global"]["tickets"]["embed"]
         e["titulo"]    = self.titulo.value.strip()
         e["descricao"] = self.descricao.value
         e["thumbnail"] = self.thumbnail.value.strip()
         e["banner"]    = self.banner.value.strip()
         e["cor"]       = self.cor.value.strip()
-        salvar_config(config)
-        _registrar_view_tickets()
+        salvar_config(config, interaction.guild_id)
+        _registrar_view_tickets(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_tickets_admin(config), view=PainelTicketsAdminView(self.painel_msg))
 
 
@@ -4575,7 +4627,7 @@ class AdicionarBotaoTicketModal(Modal, title="Adicionar Botão de Ticket"):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         emoji, label = parse_emoji_label(self.emoji_label.value)
         novo = {
             "id": gerar_id(),
@@ -4619,7 +4671,7 @@ class EditarBotaoTicketModal(Modal, title="Editar Botão de Ticket"):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         for b in config["global"]["tickets"]["botoes"]:
             if b["id"] == self.btn_id:
                 e, l = parse_emoji_label(self.emoji_label.value)
@@ -4628,8 +4680,8 @@ class EditarBotaoTicketModal(Modal, title="Editar Botão de Ticket"):
                 b["estilo"] = _parse_estilo(self.estilo.value)
                 b["mensagem_inicial"] = self.mensagem.value
                 break
-        salvar_config(config)
-        _registrar_view_tickets()
+        salvar_config(config, interaction.guild_id)
+        _registrar_view_tickets(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_tickets_admin(config), view=PainelTicketsAdminView(self.painel_msg))
 
 
@@ -4651,12 +4703,12 @@ class _EscolherCanalTicketView(View):
 
         async def callback(self, interaction: discord.Interaction):
             canal = self.values[0]
-            config = carregar_config()
+            config = carregar_config(interaction.guild_id)
             if self._outer.modo == "adicionar":
                 self._outer.btn["canal_id"] = canal.id
                 config["global"]["tickets"]["botoes"].append(self._outer.btn)
-                salvar_config(config)
-                _registrar_view_tickets()
+                salvar_config(config, interaction.guild_id)
+                _registrar_view_tickets(interaction.guild_id)
                 await interaction.response.edit_message(
                     content=f"✅ Botão adicionado e vinculado a {canal.mention}!",
                     view=None,
@@ -4666,8 +4718,8 @@ class _EscolherCanalTicketView(View):
                     if b["id"] == self._outer.btn["id"]:
                         b["canal_id"] = canal.id
                         break
-                salvar_config(config)
-                _registrar_view_tickets()
+                salvar_config(config, interaction.guild_id)
+                _registrar_view_tickets(interaction.guild_id)
                 await interaction.response.edit_message(
                     content=f"✅ Canal alterado para {canal.mention}!",
                     view=None,
@@ -4675,8 +4727,8 @@ class _EscolherCanalTicketView(View):
 
 
 class _SelectBotaoTicket(Select):
-    def __init__(self, painel_msg, acao: str):
-        config = carregar_config()
+    def __init__(self, painel_msg, acao: str, guild_id: int | None = None):
+        config = carregar_config(guild_id)
         botoes = config["global"]["tickets"]["botoes"]
         opts = []
         for b in botoes[:25]:
@@ -4700,7 +4752,7 @@ class _SelectBotaoTicket(Select):
     async def callback(self, interaction: discord.Interaction):
         if self.values[0] == "__none__":
             await interaction.response.send_message("❌ Nenhum botão cadastrado ainda.", ephemeral=True); return
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         btn = next((b for b in config["global"]["tickets"]["botoes"] if b["id"] == self.values[0]), None)
         if not btn:
             await interaction.response.send_message("❌ Botão não encontrado.", ephemeral=True); return
@@ -4715,8 +4767,8 @@ class _SelectBotaoTicket(Select):
             )
         elif self.acao == "remover":
             config["global"]["tickets"]["botoes"] = [b for b in config["global"]["tickets"]["botoes"] if b["id"] != self.values[0]]
-            salvar_config(config)
-            _registrar_view_tickets()
+            salvar_config(config, interaction.guild_id)
+            _registrar_view_tickets(interaction.guild_id)
             await interaction.response.edit_message(
                 embed=build_embed_tickets_admin(config),
                 view=PainelTicketsAdminView(self.painel_msg),
@@ -4743,7 +4795,7 @@ class _BtnTkEditarEmbed(Button):
         super().__init__(label="Editar Embed", emoji="✏️", style=discord.ButtonStyle.primary, row=0)
         self.painel_msg = painel_msg
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(EditarEmbedTicketsModal(self.painel_msg))
+        await interaction.response.send_modal(EditarEmbedTicketsModal(self.painel_msg, interaction.guild_id))
 
 
 class _BtnTkAdicionarBotao(Button):
@@ -4751,7 +4803,7 @@ class _BtnTkAdicionarBotao(Button):
         super().__init__(label="Adicionar Botão", emoji="➕", style=discord.ButtonStyle.success, row=0)
         self.painel_msg = painel_msg
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if len(config["global"]["tickets"]["botoes"]) >= 25:
             await interaction.response.send_message("❌ Limite de 25 botões atingido.", ephemeral=True); return
         await interaction.response.send_modal(AdicionarBotaoTicketModal(self.painel_msg))
@@ -4763,7 +4815,7 @@ class _BtnTkEditarBotao(Button):
         self.painel_msg = painel_msg
     async def callback(self, interaction: discord.Interaction):
         view = View(timeout=120)
-        view.add_item(_SelectBotaoTicket(self.painel_msg, "editar"))
+        view.add_item(_SelectBotaoTicket(self.painel_msg, "editar", interaction.guild_id))
         await interaction.response.send_message("Escolha qual botão editar:", view=view, ephemeral=True)
 
 
@@ -4773,7 +4825,7 @@ class _BtnTkTrocarCanal(Button):
         self.painel_msg = painel_msg
     async def callback(self, interaction: discord.Interaction):
         view = View(timeout=120)
-        view.add_item(_SelectBotaoTicket(self.painel_msg, "canal"))
+        view.add_item(_SelectBotaoTicket(self.painel_msg, "canal", interaction.guild_id))
         await interaction.response.send_message("Escolha qual botão terá o canal trocado:", view=view, ephemeral=True)
 
 
@@ -4783,7 +4835,7 @@ class _BtnTkRemoverBotao(Button):
         self.painel_msg = painel_msg
     async def callback(self, interaction: discord.Interaction):
         view = View(timeout=120)
-        view.add_item(_SelectBotaoTicket(self.painel_msg, "remover"))
+        view.add_item(_SelectBotaoTicket(self.painel_msg, "remover", interaction.guild_id))
         await interaction.response.send_message("Escolha qual botão remover:", view=view, ephemeral=True)
 
 
@@ -4791,7 +4843,7 @@ class _BtnTkVisualizar(Button):
     def __init__(self):
         super().__init__(label="Visualizar", emoji="👁️", style=discord.ButtonStyle.secondary, row=1)
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.send_message(
             content="**Pré-visualização do painel:**",
             embed=build_embed_tickets_publico(config),
@@ -4805,7 +4857,7 @@ class _BtnTkPublicar(Button):
         super().__init__(label="Publicar Painel", emoji="🚀", style=discord.ButtonStyle.success, row=2)
         self.painel_msg = painel_msg
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         if not config["global"]["tickets"]["botoes"]:
             await interaction.response.send_message("❌ Adicione pelo menos um botão antes de publicar.", ephemeral=True); return
         view = View(timeout=120)
@@ -4818,7 +4870,7 @@ class _PublicarTicketsCanalSelect(ChannelSelect):
         super().__init__(channel_types=[discord.ChannelType.text], placeholder="Canal onde publicar o painel…", min_values=1, max_values=1)
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         canal = self.values[0]
         canal_real = interaction.guild.get_channel(canal.id)
         if not isinstance(canal_real, discord.TextChannel):
@@ -4833,10 +4885,10 @@ class _PublicarTicketsCanalSelect(ChannelSelect):
 # ─── View pública (que aparece pros usuários) ────
 
 class PainelTicketsPublicoView(View):
-    def __init__(self, config: dict | None = None):
+    def __init__(self, config: dict | None = None, guild_id: int | None = None):
         super().__init__(timeout=None)
         if config is None:
-            config = carregar_config()
+            config = carregar_config(guild_id)
         for i, b in enumerate(config["global"]["tickets"]["botoes"][:25]):
             self.add_item(_BtnAbrirTicket(b, row=i // 5))
 
@@ -4854,7 +4906,7 @@ class _BtnAbrirTicket(Button):
         self.btn_id = btn_data["id"]
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         btn = next((b for b in config["global"]["tickets"]["botoes"] if b["id"] == self.btn_id), None)
         if not btn:
             await interaction.response.send_message("❌ Esse botão não está mais disponível.", ephemeral=True); return
@@ -4929,10 +4981,10 @@ class _BtnAbrirTicket(Button):
             print(f"⚠️ log ticket aberto: {e}")
 
 
-def _registrar_view_tickets():
+def _registrar_view_tickets(guild_id: int | None = None):
     """Re-registra a view pública de tickets pra que novos botões funcionem em mensagens já publicadas."""
     try:
-        bot.add_view(PainelTicketsPublicoView(carregar_config()))
+        bot.add_view(PainelTicketsPublicoView(carregar_config(guild_id)))
     except Exception:
         pass
 
@@ -5078,7 +5130,7 @@ async def limpar(interaction: discord.Interaction):
 async def painel_tickets(interaction: discord.Interaction):
     if not await _check_plano(interaction, "tickets"):
         return
-    config = carregar_config()
+    config = carregar_config(interaction.guild_id)
     view = PainelTicketsAdminView()
     await interaction.response.send_message(embed=build_embed_tickets_admin(config), view=view, ephemeral=True)
     msg = await interaction.original_response()
@@ -5094,8 +5146,8 @@ async def painel(interaction: discord.Interaction):
     if not await _check_plano(interaction, "filas"):
         return
     try:
-        config = carregar_config()
-        view   = PainelPrincipalView()
+        config = carregar_config(interaction.guild_id)
+        view   = PainelPrincipalView(guild_id=interaction.guild_id)
         await interaction.response.send_message(embed=build_embed_painel_geral(config), view=view, ephemeral=True)
         msg = await interaction.original_response()
         view.set_message(msg)
@@ -5116,7 +5168,7 @@ async def criarfilas(interaction: discord.Interaction):
     if not await _check_plano(interaction, "criarfilas"):
         return
     await interaction.response.defer(ephemeral=True)
-    config    = carregar_config()
+    config    = carregar_config(interaction.guild_id)
     sem_canal = [ch for ch in ALL_MODOS if not config[ch].get("canal_id")]
     if sem_canal:
         await interaction.followup.send(f"⚠️ Configure os canais com `/painel`. Sem canal: {len(sem_canal)} modo(s).", ephemeral=True)
@@ -5128,7 +5180,7 @@ async def criarfilas(interaction: discord.Interaction):
 async def painel_mediador(interaction: discord.Interaction):
     if not await _check_plano(interaction, "mediador"):
         return
-    config = carregar_config()
+    config = carregar_config(interaction.guild_id)
     embed  = build_embed_painel_mediador(config)
     view   = PainelMediadorView()
     msg    = await interaction.channel.send(embed=embed, view=view)
@@ -5143,9 +5195,9 @@ async def painel_mediador(interaction: discord.Interaction):
 async def filas_off(interaction: discord.Interaction):
     if not await _check_plano(interaction, "filas_toggle"):
         return
-    config = carregar_config()
+    config = carregar_config(interaction.guild_id)
     config["global"]["filas_ativas"] = False
-    salvar_config(config)
+    salvar_config(config, interaction.guild_id)
     await _atualizar_status_filas(interaction.guild, config)
     await interaction.response.send_message("🛑 **Filas DESATIVADAS** — ninguém pode entrar nas filas até serem reativadas.", ephemeral=True)
 
@@ -5154,9 +5206,9 @@ async def filas_off(interaction: discord.Interaction):
 async def filas_on(interaction: discord.Interaction):
     if not await _check_plano(interaction, "filas_toggle"):
         return
-    config = carregar_config()
+    config = carregar_config(interaction.guild_id)
     config["global"]["filas_ativas"] = True
-    salvar_config(config)
+    salvar_config(config, interaction.guild_id)
     await _atualizar_status_filas(interaction.guild, config)
     await interaction.response.send_message("🟢 **Filas ATIVADAS** — os jogadores já podem entrar.", ephemeral=True)
 
@@ -5165,7 +5217,7 @@ async def filas_on(interaction: discord.Interaction):
 async def painel_streamer(interaction: discord.Interaction):
     if not await _check_plano(interaction, "streamer"):
         return
-    config = carregar_config()
+    config = carregar_config(interaction.guild_id)
     embed  = build_embed_painel_streamer(config)
     view   = PainelStreamerView()
     msg    = await interaction.channel.send(embed=embed, view=view)
@@ -5178,9 +5230,9 @@ async def painel_streamer(interaction: discord.Interaction):
 async def streamer_cmd(interaction: discord.Interaction, streamer: discord.Member = None):
     if not await _check_plano(interaction, "streamer"):
         return
-    config = carregar_config()
+    config = carregar_config(interaction.guild_id)
     config["global"]["streamer"]["user_id"] = streamer.id if streamer else None
-    salvar_config(config)
+    salvar_config(config, interaction.guild_id)
     await _atualizar_painel_streamer(config)
     if streamer:
         await interaction.response.send_message(f"✅ Streamer definido: {streamer.mention}", ephemeral=True)
@@ -5191,7 +5243,7 @@ async def streamer_cmd(interaction: discord.Interaction, streamer: discord.Membe
 @bot.tree.command(name="vencedor", description="Define o vencedor da partida e fecha o canal em 10 segundos")
 @app_commands.describe(vencedor="Jogador que venceu a partida (digite o nick para buscar)")
 async def vencedor_cmd(interaction: discord.Interaction, vencedor: discord.Member):
-    config = carregar_config()
+    config = carregar_config(interaction.guild_id)
     eh_owner   = interaction.user.id == BOT_OWNER_ID
     eh_admin   = usuario_pode_admin(interaction.user, config)
     eh_mediador = usuario_e_mediador(interaction.user, config)
@@ -5283,7 +5335,7 @@ async def aparencia(interaction: discord.Interaction):
         return
     if not interaction.guild:
         await interaction.response.send_message("❌ Use este comando dentro de um servidor.", ephemeral=True); return
-    config = carregar_config()
+    config = carregar_config(interaction.guild_id)
     await interaction.response.send_message(
         embed=build_embed_aparencia(interaction.guild, config),
         view=AparenciaView(),
@@ -5331,7 +5383,7 @@ async def gerar_key_cmd(interaction: discord.Interaction, plano: str, quantidade
 @bot.tree.command(name="ativar_key", description="Ativa uma key neste servidor para liberar os recursos do plano")
 @app_commands.describe(key="Key recebida (formato: XXXX-XXXX-XXXX-XXXX)")
 async def ativar_key_cmd(interaction: discord.Interaction, key: str):
-    config = carregar_config()
+    config = carregar_config(interaction.guild_id)
     if not usuario_pode_admin(interaction.user, config):
         await interaction.response.send_message("❌ Apenas administradores podem ativar keys.", ephemeral=True)
         return
@@ -5823,7 +5875,7 @@ async def regras_cmd(
 
     await interaction.response.defer(ephemeral=True)
 
-    config   = carregar_config()
+    config   = carregar_config(interaction.guild_id)
     rcfg     = _get_regras_config(config)
     _cor     = parse_cor(rcfg["cor"]) if rcfg["cor"] else (cor_global(config) if interaction.guild else COR_PADRAO)
     banner   = rcfg.get("banner", "")
@@ -5920,13 +5972,13 @@ class EditarRegrasModal(Modal):
             self.add_item(it)
 
     async def on_submit(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         rcfg = config["global"].setdefault("regras_config", {})
         rcfg["banner"]    = self.banner.value.strip()
         rcfg["thumbnail"] = self.thumbnail.value.strip()
         rcfg["cor"]       = self.cor.value.strip()
         rcfg["rodape"]    = self.rodape.value.strip()
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_painel_regras(config), view=PainelRegrasView())
 
 
@@ -5935,7 +5987,7 @@ class _BtnEditarRegras(Button):
         super().__init__(label="✏️  Editar", style=discord.ButtonStyle.primary, row=0)
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         await interaction.response.send_modal(EditarRegrasModal(config))
 
 
@@ -5944,9 +5996,9 @@ class _BtnResetarRegras(Button):
         super().__init__(label="🔄  Resetar padrão", style=discord.ButtonStyle.danger, row=0)
 
     async def callback(self, interaction: discord.Interaction):
-        config = carregar_config()
+        config = carregar_config(interaction.guild_id)
         config["global"]["regras_config"] = {"banner": "", "thumbnail": "", "cor": "", "rodape": ""}
-        salvar_config(config)
+        salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_painel_regras(config), view=PainelRegrasView())
 
 
@@ -5961,7 +6013,7 @@ class PainelRegrasView(View):
 async def painel_regras_cmd(interaction: discord.Interaction):
     if not await _check_plano(interaction, "regras"):
         return
-    config = carregar_config()
+    config = carregar_config(interaction.guild_id)
     await interaction.response.send_message(embed=build_embed_painel_regras(config), view=PainelRegrasView(), ephemeral=True)
 
 
@@ -5969,10 +6021,57 @@ def _run_health_server():
     port = int(os.environ.get("PORT", 8080))
 
     class _Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
+        def _json_resp(self, data, status=200):
+            body = json.dumps(data).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
-            self.wfile.write(b"OK")
+            self.wfile.write(body)
+
+        def do_OPTIONS(self):
+            self.send_response(200)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.end_headers()
+
+        def do_GET(self):
+            if self.path == "/status":
+                try:
+                    g_cfg = carregar_config()
+                    filas_ok = g_cfg.get("global", {}).get("filas_ativas", True)
+                except Exception:
+                    filas_ok = True
+                self._json_resp({
+                    "online": True,
+                    "uptime_seconds": int(_time_module.time() - _BOT_START_TIME),
+                    "guilds": len(bot.guilds) if hasattr(bot, "guilds") else 0,
+                    "commands": 20,
+                    "filas_ativas": filas_ok,
+                })
+            else:
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"OK")
+
+        def do_POST(self):
+            if self.path == "/toggle-filas":
+                try:
+                    length = int(self.headers.get("Content-Length", 0))
+                    raw = self.rfile.read(length) if length else b"{}"
+                    body = json.loads(raw)
+                    gid = int(body["guild_id"]) if body.get("guild_id") else None
+                    cfg = carregar_config(gid)
+                    current = cfg.get("global", {}).get("filas_ativas", True)
+                    cfg["global"]["filas_ativas"] = not current
+                    salvar_config(cfg, gid)
+                    self._json_resp({"filas_ativas": not current})
+                except Exception as e:
+                    self._json_resp({"error": str(e)}, 500)
+            else:
+                self.send_response(404)
+                self.end_headers()
 
         def log_message(self, *args):
             pass

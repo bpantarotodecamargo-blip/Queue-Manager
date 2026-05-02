@@ -10,17 +10,18 @@ Located in `bot/` (Python 3.11, discord.py 2.7+). Runs via the `Discord Queue Bo
 
 ### Features
 
-- **4 categorias × até 4 modos** (Mobile, Emulador, Misto, Tático).
+- **5 categorias × até 4 modos** (Mobile, Emulador, Misto, Tático, **Full Soco 👊**).
 - **Painel `/painel`** com botões para cada categoria + Config Geral, Embed Global, Filas ON/OFF e Publicar.
 - **Embed Global** (botão 🎨 no painel): banner, thumbnail e cor padrão aplicados a todos os embeds. Filas individuais podem sobrescrever banner/thumb.
+- **Config por servidor** — cada guild tem seu próprio `bot/guilds/{guild_id}/config.json`. Na primeira conexão o bot migra automaticamente a config global para cada servidor. Todas as operações de interação são isoladas por guild.
 - **Cargos configuráveis:**
   - 👑 **Permissão Máxima** — pode usar todos os comandos administrativos.
   - 🛡️ **Cargo ADM** — pingado nas partidas e adicionado ao canal após confirmação.
   - 🤝 **Cargo Mediador** — pode entrar no painel de mediadores; pingado se nenhum mediador estiver na fila.
 - **Filas ON/OFF** (botão no painel ou `/filas_off` / `/filas_on`): bloqueia entrada nas filas e atualiza mensagem de status nos canais.
 - **Painel de Mediadores** (`/painel_mediador`): mediadores cadastram PIX (nome, tipo, chave) e entram em fila própria. Quando uma partida é confirmada, o próximo mediador é puxado e o PIX dele é exibido no canal da partida.
-- **Persistência** — toda config em `bot/config.json`. Views persistentes via `add_view` no `setup_hook`.
-- **Health server opcional** — se `PORT` estiver definido, abre HTTP em `0.0.0.0:PORT` para keep-alive.
+- **Persistência** — config por servidor em `bot/guilds/{id}/config.json`. Views persistentes via `add_view` no `setup_hook`.
+- **Health server** (`PORT=8081`) — endpoints `GET /status` (JSON com online, uptime, guilds, filas_ativas) e `POST /toggle-filas` para controle externo.
 
 ### Slash commands
 
@@ -53,6 +54,22 @@ Painel persistente onde jogadores entram para enfrentar o streamer:
 - **Server Members Intent** ativado (necessário para resolver cargos de membros).
 - **Message Content Intent** ativado.
 - Token do bot em `DISCORD_TOKEN` (secret do Replit).
+
+## Web Dashboard (`artifacts/bot-dashboard`)
+
+Dashboard de status do bot em React + Vite. Caminho: `/`.
+
+- Poleia `/api/bot-status` a cada 5 segundos para status real (online/offline, uptime, nº de servidores, comandos).
+- Botão central **Liga/Desliga Filas** chama `POST /api/bot-toggle` para alternar `filas_ativas` no servidor.
+- Indicadores dinâmicos refletem o estado real do bot em tempo real.
+
+## API Server (`artifacts/api-server`)
+
+Express 5 em TypeScript. Caminho: `/api`.
+
+- `GET /api/healthz` — health check padrão.
+- `GET /api/bot-status` — proxy para `localhost:8081/status` (health server do bot).
+- `POST /api/bot-toggle` — proxy para `localhost:8081/toggle-filas`.
 
 ## Monorepo (legado)
 
