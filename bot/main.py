@@ -135,7 +135,7 @@ def criar_key(plano: str) -> str:
 
 def ativar_key(key: str, guild_id: int) -> tuple[bool, str]:
     """
-    Tenta ativar a key para a guild. 
+    Tenta ativar a key para a guild.
     Retorna (sucesso, mensagem).
     """
     data = carregar_keys()
@@ -154,17 +154,27 @@ def ativar_key(key: str, guild_id: int) -> tuple[bool, str]:
 
     plano_anterior = data["guilds"].get(gid, {}).get("plano")
 
-    info["ativada"] = True
-    info["guild_id"] = gid
-    info["ativada_em"] = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    agora      = datetime.datetime.utcnow()
+    expira_em  = agora + datetime.timedelta(days=30)
+
+    info["ativada"]    = True
+    info["guild_id"]   = gid
+    info["ativada_em"] = agora.strftime("%Y-%m-%d %H:%M UTC")
+    info["expira_em"]  = expira_em.strftime("%Y-%m-%d %H:%M UTC")
+
     data["guilds"][gid] = {
-        "plano": info["plano"],
-        "key_usada": key,
+        "plano":      info["plano"],
+        "key_usada":  key,
         "ativada_em": info["ativada_em"],
+        "expira_em":  info["expira_em"],
     }
     salvar_keys(data)
 
-    msg = f"✅ Key ativada com sucesso! Plano **{PLANO_EMOJI.get(info['plano'],'')} {info['plano'].capitalize()}** habilitado neste servidor."
+    msg = (
+        f"✅ Key ativada com sucesso! Plano **{PLANO_EMOJI.get(info['plano'],'')} {info['plano'].capitalize()}** "
+        f"habilitado neste servidor.\n"
+        f"> ⏳ Válida até: **{expira_em.strftime('%d/%m/%Y')}** (30 dias)"
+    )
     if plano_anterior and plano_anterior != info["plano"]:
         msg += f"\n> Plano anterior: **{plano_anterior.capitalize()}** → agora **{info['plano'].capitalize()}**."
     return True, msg
@@ -179,8 +189,42 @@ def get_plano_guild(guild_id: int) -> str | None:
     return None
 
 
+def get_expiracao_guild(guild_id: int) -> datetime.datetime | None:
+    """Retorna o datetime de expiração da key da guild, ou None."""
+    data = carregar_keys()
+    info = data["guilds"].get(str(guild_id))
+    if not info:
+        return None
+    exp = info.get("expira_em")
+    if not exp:
+        return None
+    try:
+        return datetime.datetime.strptime(exp, "%Y-%m-%d %H:%M UTC")
+    except Exception:
+        return None
+
+
+def dias_restantes_guild(guild_id: int) -> int | None:
+    """Retorna quantos dias restam na key, ou None se sem key. Valor negativo = expirada."""
+    exp = get_expiracao_guild(guild_id)
+    if exp is None:
+        return None
+    delta = exp - datetime.datetime.utcnow()
+    return delta.days
+
+
+def guild_key_expirada(guild_id: int) -> bool:
+    """True se a guild tem key mas ela já expirou."""
+    dias = dias_restantes_guild(guild_id)
+    if dias is None:
+        return False
+    return dias < 0
+
+
 def guild_tem_feature(guild_id: int, feature: str) -> bool:
-    """True se a guild tem o plano que inclui a feature."""
+    """True se a guild tem o plano que inclui a feature E a key ainda é válida."""
+    if guild_key_expirada(guild_id):
+        return False
     plano = get_plano_guild(guild_id)
     if not plano:
         return False
@@ -2887,6 +2931,75 @@ async def _atualizar_status_filas(guild: discord.Guild, config: dict):
     # Os embeds são atualizados quando alguém clica num botão.
 
 
+async def _verificar_keys_expiradas():
+    """Roda diariamente: avisa admins quando a key está prestes a expirar ou já expirou."""
+    await asyncio.sleep(10)  # aguarda o bot estabilizar no startup
+    while True:
+        try:
+            data = carregar_keys()
+            for gid_str, info_g in data["guilds"].items():
+                try:
+                    gid   = int(gid_str)
+                    guild = bot.get_guild(gid)
+                    if not guild:
+                        continue
+
+                    dias = dias_restantes_guild(gid)
+                    if dias is None:
+                        continue
+
+                    plano = info_g.get("plano", "")
+                    emoji = PLANO_EMOJI.get(plano, "")
+
+                    if dias < 0:
+                        # Key já expirou — avisa uma vez por dia
+                        titulo = f"⌛ Key expirada — {emoji} {plano.capitalize()}"
+                        desc   = (
+                            f"A key do plano **{emoji} {plano.capitalize()}** neste servidor **expirou**.\n"
+                            f"Todos os comandos do bot estão **bloqueados** até a renovação.\n\n"
+                            f"Use `/ativar_key` com uma nova key para reativar."
+                        )
+                        cor = discord.Color.red()
+                    elif dias <= 3:
+                        titulo = f"⚠️ Key expira em {dias} dia(s)!"
+                        desc   = (
+                            f"A key do plano **{emoji} {plano.capitalize()}** deste servidor expira em "
+                            f"**{dias} dia(s)**.\n"
+                            f"Renove usando `/ativar_key` com uma nova key para não perder o acesso."
+                        )
+                        cor = discord.Color.orange()
+                    elif dias <= 7:
+                        titulo = f"🔔 Key expira em {dias} dias"
+                        desc   = (
+                            f"Lembrete: a key do plano **{emoji} {plano.capitalize()}** expira em **{dias} dias**.\n"
+                            f"Use `/ativar_key` para renovar quando estiver pronto."
+                        )
+                        cor = discord.Color.yellow()
+                    else:
+                        continue
+
+                    embed = discord.Embed(title=titulo, description=desc, color=cor)
+                    exp = get_expiracao_guild(gid)
+                    if exp:
+                        embed.set_footer(text=f"Expiração: {exp.strftime('%d/%m/%Y às %H:%M UTC')}")
+
+                    # Tenta mandar para o canal do sistema ou para o primeiro canal de texto disponível
+                    canal = guild.system_channel
+                    if not canal:
+                        canal = next(
+                            (c for c in guild.text_channels if c.permissions_for(guild.me).send_messages),
+                            None,
+                        )
+                    if canal:
+                        await canal.send(embed=embed)
+                except Exception as e:
+                    print(f"⚠️ [KEY AVISO] Erro na guild {gid_str}: {e}")
+        except Exception as e:
+            print(f"⚠️ [KEY AVISO] Erro geral: {e}")
+
+        await asyncio.sleep(86400)  # verifica a cada 24 horas
+
+
 async def _renovar_filas_on():
     while True:
         await asyncio.sleep(300)
@@ -3788,6 +3901,7 @@ class MyBot(discord.Client):
                 print(f"   ⚠️ Falha ao sincronizar em '{guild.name}': {e}")
         await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="as filas 🎮"))
         asyncio.create_task(_renovar_filas_on())
+        asyncio.create_task(_verificar_keys_expiradas())
 
     async def on_guild_join(self, guild: discord.Guild):
         try:
@@ -4011,6 +4125,10 @@ async def _check_pode_admin(interaction: discord.Interaction) -> bool:
 async def _check_plano(interaction: discord.Interaction, feature: str) -> bool:
     """Verifica se o usuário é admin E se a guild tem o plano necessário para a feature."""
     try:
+        # Dono do bot: acesso total, sem precisar de key
+        if interaction.user.id == BOT_OWNER_ID:
+            return True
+
         config = carregar_config()
         if not usuario_pode_admin(interaction.user, config):
             await interaction.response.send_message("❌ Você não tem permissão para usar este comando.", ephemeral=True)
@@ -4024,10 +4142,21 @@ async def _check_plano(interaction: discord.Interaction, feature: str) -> bool:
             return True
 
         plano_atual = get_plano_guild(interaction.guild.id)
-        minimo = PLANO_MINIMO.get(feature, "bronze")
+        expirada    = guild_key_expirada(interaction.guild.id)
+        minimo      = PLANO_MINIMO.get(feature, "bronze")
         nome_feature = FEATURE_NOME.get(feature, feature)
 
-        if plano_atual is None:
+        if expirada:
+            exp = get_expiracao_guild(interaction.guild.id)
+            exp_str = exp.strftime("%d/%m/%Y") if exp else "?"
+            emoji_plano = PLANO_EMOJI.get(plano_atual, "")
+            msg = (
+                f"⌛ **Key expirada!**\n\n"
+                f"O plano **{emoji_plano} {plano_atual.capitalize()}** deste servidor expirou em **{exp_str}**.\n"
+                f"Use `/ativar_key` com uma nova key para renovar e continuar usando o bot.\n\n"
+                f"> Sem uma key ativa os comandos ficam **bloqueados**."
+            )
+        elif plano_atual is None:
             msg = (
                 f"🔑 **Key necessária!**\n\n"
                 f"Este servidor ainda não possui uma key ativa.\n"
@@ -4770,15 +4899,25 @@ async def streamer_cmd(interaction: discord.Interaction, streamer: discord.Membe
 @app_commands.describe(vencedor="Jogador que venceu a partida (digite o nick para buscar)")
 async def vencedor_cmd(interaction: discord.Interaction, vencedor: discord.Member):
     config = carregar_config()
+    eh_owner   = interaction.user.id == BOT_OWNER_ID
     eh_admin   = usuario_pode_admin(interaction.user, config)
     eh_mediador = usuario_e_mediador(interaction.user, config)
-    if not (eh_admin or eh_mediador):
+    if not (eh_owner or eh_admin or eh_mediador):
         await interaction.response.send_message(
             "❌ Apenas **administradores**, **permissão máxima** ou **mediadores** podem definir o vencedor.",
             ephemeral=True,
         ); return
-    if eh_admin and interaction.guild and not guild_tem_feature(interaction.guild.id, "vencedor"):
+    if not eh_owner and eh_admin and interaction.guild and not guild_tem_feature(interaction.guild.id, "vencedor"):
+        expirada    = guild_key_expirada(interaction.guild.id)
         plano_atual = get_plano_guild(interaction.guild.id)
+        if expirada:
+            exp = get_expiracao_guild(interaction.guild.id)
+            exp_str = exp.strftime("%d/%m/%Y") if exp else "?"
+            await interaction.response.send_message(
+                f"⌛ **Key expirada!** O plano **{plano_atual.capitalize() if plano_atual else ''}** expirou em {exp_str}.\n"
+                f"Use `/ativar_key` com uma nova key para renovar.",
+                ephemeral=True,
+            ); return
         if plano_atual is None:
             await interaction.response.send_message(
                 "🔑 **Key necessária!** Este servidor não possui uma key ativa. Use `/ativar_key` para liberar os recursos do bot.",
@@ -4950,10 +5089,12 @@ async def minha_key_cmd(interaction: discord.Interaction):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
-    emoji  = PLANO_EMOJI.get(plano, "")
-    feats  = PLANOS_PERMISSOES.get(plano, set())
-    data   = carregar_keys()
-    info_g = data["guilds"].get(str(interaction.guild.id), {})
+    expirada = guild_key_expirada(interaction.guild.id)
+    dias     = dias_restantes_guild(interaction.guild.id)
+    emoji    = PLANO_EMOJI.get(plano, "")
+    feats    = PLANOS_PERMISSOES.get(plano, set())
+    data_k   = carregar_keys()
+    info_g   = data_k["guilds"].get(str(interaction.guild.id), {})
 
     linhas_feat = "\n".join(
         f"✅ {FEATURE_NOME.get(f, f).capitalize()}"
@@ -4969,17 +5110,42 @@ async def minha_key_cmd(interaction: discord.Interaction):
         for f in sorted(set(nao_inclusos))
     ) or "—"
 
-    embed = discord.Embed(
-        title=f"{emoji} Plano {plano.capitalize()}",
-        color=discord.Color.gold() if plano == "ouro" else
-              discord.Color.from_str("#b9f2ff") if plano == "platina" else
-              discord.Color.from_str("#CD7F32") if plano == "bronze" else
-              discord.Color.light_grey(),
-    )
-    embed.add_field(name="✅ Recursos inclusos",    value=linhas_feat, inline=True)
-    embed.add_field(name="🔒 Não inclusos",          value=linhas_bloq, inline=True)
+    if expirada:
+        cor   = discord.Color.red()
+        titulo = f"⌛ Plano {plano.capitalize()} — EXPIRADO"
+    elif dias is not None and dias <= 3:
+        cor   = discord.Color.orange()
+        titulo = f"{emoji} Plano {plano.capitalize()} — ⚠️ Expira em {dias} dia(s)!"
+    elif dias is not None and dias <= 7:
+        cor   = discord.Color.yellow()
+        titulo = f"{emoji} Plano {plano.capitalize()} — 🔔 {dias} dias restantes"
+    else:
+        cor = (discord.Color.gold() if plano == "ouro" else
+               discord.Color.from_str("#b9f2ff") if plano == "platina" else
+               discord.Color.from_str("#CD7F32") if plano == "bronze" else
+               discord.Color.light_grey())
+        titulo = f"{emoji} Plano {plano.capitalize()}"
+
+    embed = discord.Embed(title=titulo, color=cor)
+
+    if expirada:
+        embed.description = "⚠️ Esta key expirou. Use `/ativar_key` com uma nova key para renovar."
+    elif dias is not None:
+        exp = get_expiracao_guild(interaction.guild.id)
+        exp_str = exp.strftime("%d/%m/%Y") if exp else "?"
+        embed.description = f"⏳ Válida até **{exp_str}** ({dias} dias restantes)"
+
+    embed.add_field(name="✅ Recursos inclusos", value=linhas_feat or "—", inline=True)
+    embed.add_field(name="🔒 Não inclusos",       value=linhas_bloq,       inline=True)
+
+    footer_parts = []
     if info_g.get("ativada_em"):
-        embed.set_footer(text=f"Ativada em: {info_g['ativada_em']}")
+        footer_parts.append(f"Ativada em: {info_g['ativada_em']}")
+    if info_g.get("expira_em"):
+        footer_parts.append(f"Expira em: {info_g['expira_em']}")
+    if footer_parts:
+        embed.set_footer(text=" • ".join(footer_parts))
+
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
