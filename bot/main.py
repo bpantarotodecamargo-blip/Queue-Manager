@@ -5472,10 +5472,10 @@ LOGO_FILENAME = "logo.png"
 LOGO_URL = f"attachment://{LOGO_FILENAME}"
 
 
-def _embeds_regras_x1() -> list[discord.Embed]:
+def _embeds_regras_x1(color: int = COR_PADRAO) -> list[discord.Embed]:
     e1 = discord.Embed(
         title="📜 REGRAS X1 — GELO INFINITO",
-        color=0x3498DB,
+        color=color,
     )
     e1.set_thumbnail(url=LOGO_URL)
     e1.add_field(
@@ -5502,7 +5502,7 @@ def _embeds_regras_x1() -> list[discord.Embed]:
 
     e2 = discord.Embed(
         title="📜 REGRAS X1 — GEL NORMAL",
-        color=0x2980B9,
+        color=color,
     )
     e2.set_thumbnail(url=LOGO_URL)
     e2.add_field(
@@ -5527,10 +5527,10 @@ def _embeds_regras_x1() -> list[discord.Embed]:
     return [e1, e2]
 
 
-def _embeds_regras_geral() -> list[discord.Embed]:
+def _embeds_regras_geral(color: int = COR_PADRAO) -> list[discord.Embed]:
     e1 = discord.Embed(
         title="🚹 PERSONAGENS",
-        color=0x9B59B6,
+        color=color,
     )
     e1.set_thumbnail(url=LOGO_URL)
     e1.add_field(
@@ -5556,7 +5556,7 @@ def _embeds_regras_geral() -> list[discord.Embed]:
 
     e2 = discord.Embed(
         title="🔫 ARMAS",
-        color=0xE67E22,
+        color=color,
     )
     e2.set_thumbnail(url=LOGO_URL)
     e2.add_field(
@@ -5591,7 +5591,7 @@ def _embeds_regras_geral() -> list[discord.Embed]:
 
     e3 = discord.Embed(
         title="🚨 REGRAS GERAIS — QUEBRA DE REGRA & COMBINADOS",
-        color=0xE74C3C,
+        color=color,
     )
     e3.set_thumbnail(url=LOGO_URL)
     e3.add_field(
@@ -5659,13 +5659,16 @@ async def regras_cmd(
 
     await interaction.response.defer(ephemeral=True)
 
+    config = carregar_config()
+    _cor = cor_global(config) if interaction.guild else COR_PADRAO
+
     embeds: list[discord.Embed] = []
     if tipo.value == "x1":
-        embeds = _embeds_regras_x1()
+        embeds = _embeds_regras_x1(color=_cor)
     elif tipo.value == "geral":
-        embeds = _embeds_regras_geral()
+        embeds = _embeds_regras_geral(color=_cor)
     else:
-        embeds = _embeds_regras_x1() + _embeds_regras_geral()
+        embeds = _embeds_regras_x1(color=_cor) + _embeds_regras_geral(color=_cor)
 
     # Envia os embeds no canal destino (máx 10 por mensagem)
     # Cada chunk precisa de um novo discord.File (objetos File não são reutilizáveis)
