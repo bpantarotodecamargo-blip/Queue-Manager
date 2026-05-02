@@ -298,15 +298,15 @@
     "titulo": "Mobile 2v2",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1497999471630483639,
+    "canal_id": 1491563224573939843,
     "botao1": {
-      "emoji": "<:geloff:1497750981172134019>",
-      "label": "Gelo Normal",
+      "emoji": "<:ump:1497751179604787241>",
+      "label": "Full Ump Xm8",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "<:geloff:1497750981172134019>",
-      "label": "Gelo Infinito",
+      "emoji": "<:entrar:1497751466973335592>",
+      "label": "Entrar Normal",
       "estilo": "secondary"
     },
     "precos": [
@@ -390,100 +390,105 @@
     },
     "botoes_entrar": [
       {
-        "id": "1",
-        "emoji": "<:geloff:1497750981172134019>",
-        "label": "Gelo Normal",
-        "estilo": "secondary"
+        "emoji": "<:ump:1497751179604787241>",
+        "label": "Full Ump Xm8",
+        "estilo": "secondary",
+        "id": "1"
       },
       {
-        "id": "2",
-        "emoji": "<:geloff:1497750981172134019>",
-        "label": "Gelo Infinito",
-        "estilo": "secondary"
+        "emoji": "<:entrar:1497751466973335592>",
+        "label": "Entrar Normal",
+        "estilo": "secondary",
+        "id": "2"
       }
     ]
   },
   "Mobile_3v3": {
     "titulo": "Mobile 3v3",
-    "banner": "https://cdn.discordapp.com/attachments/1498005985523007580/1499517378483191808/ChatGPT_Image_30_de_abr._de_2026_18_05_58.png?ex=69f515e2&is=69f3c462&hm=3c469d0d587552c751480286f5b880a0a95b18dc30a44f44a37579dc089c6211&",
-    "thumbnail": "https://cdn.discordapp.com/attachments/1498005985523007580/1498006068390006948/ChatGPT_Image_26_de_abr._de_2026_13_42_25.png?ex=69f4dc5e&is=69f38ade&hm=2dcb6a1075c75f6fe7d760c64059a6e515fdf2fc1dc98086ceeb0a127e8188e1&",
-    "canal_id": 1497999474377621734,
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1491563225739821066,
     "botao1": {
-      "emoji": "<:entrar:1497751466973335592>",
-      "label": "Entrar na Fila",
-      "estilo": "secondary"
-    },
-    "botao2": {
       "emoji": "<:ump:1497751179604787241>",
       "label": "Full Ump Xm8",
       "estilo": "secondary"
     },
+    "botao2": {
+      "emoji": "<:entrar:1497751466973335592>",
+      "label": "Entrar Normal",
+      "estilo": "secondary"
+    },
     "precos": [
       {
-        "id": "4bf28acaa6",
-        "valor": "R$ 0,25",
+        "id": "40b55f4b3a",
+        "valor": "R$ 0,20",
         "jogadores": []
       },
       {
-        "id": "b1718aaa66",
+        "id": "1a80feb026",
         "valor": "R$ 0,50",
         "jogadores": []
       },
       {
-        "id": "0defa66ae0",
+        "id": "98d4669dc9",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "542f797b9c",
         "valor": "R$ 1,00",
         "jogadores": []
       },
       {
-        "id": "7bedfc8ef5",
+        "id": "f12ab346fc",
         "valor": "R$ 2,00",
         "jogadores": []
       },
       {
-        "id": "07de432861",
+        "id": "12c877853a",
         "valor": "R$ 3,00",
         "jogadores": []
       },
       {
-        "id": "0d97980f71",
+        "id": "8ac2b5c71a",
         "valor": "R$ 4,00",
         "jogadores": []
       },
       {
-        "id": "66c9ca5a90",
+        "id": "b6b5018648",
         "valor": "R$ 5,00",
         "jogadores": []
       },
       {
-        "id": "3cf90b39cf",
+        "id": "8e9019910c",
         "valor": "R$ 10,00",
         "jogadores": []
       },
       {
-        "id": "341025da92",
+        "id": "7a1cf343f2",
         "valor": "R$ 20,00",
         "jogadores": []
       },
       {
-        "id": "13480a6d6b",
+        "id": "893f8063e9",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "494779af03",
         "valor": "R$ 50,00",
         "jogadores": []
       },
       {
-        "id": "8b4fb5be14",
+        "id": "059806fcfe",
         "valor": "R$ 100,00",
-        "jogadores": []
-      },
-      {
-        "id": "8fe4bb9f7e",
-        "valor": "R$ 200,00",
         "jogadores": []
       }
     ],
-    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor:**\n[[valor_partida]]\n**Jogadores:**\n[[jogadores_fila]]",
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
     "cor": "#FFDF00",
     "botao_sair": {
-      "emoji": "❌",
+      "emoji": "<:sair:1497751579716091944>",
       "label": "Sair da fila",
       "estilo": "danger"
     },
@@ -494,14 +499,14 @@
     },
     "botoes_entrar": [
       {
-        "emoji": "<:entrar:1497751466973335592>",
-        "label": "Entrar na Fila",
+        "emoji": "<:ump:1497751179604787241>",
+        "label": "Full Ump Xm8",
         "estilo": "secondary",
         "id": "1"
       },
       {
-        "emoji": "<:ump:1497751179604787241>",
-        "label": "Full Ump Xm8",
+        "emoji": "<:entrar:1497751466973335592>",
+        "label": "Entrar Normal",
         "estilo": "secondary",
         "id": "2"
       }
@@ -509,85 +514,90 @@
   },
   "Mobile_4v4": {
     "titulo": "Mobile 4v4",
-    "banner": "https://cdn.discordapp.com/attachments/1498005985523007580/1499517378483191808/ChatGPT_Image_30_de_abr._de_2026_18_05_58.png?ex=69f515e2&is=69f3c462&hm=3c469d0d587552c751480286f5b880a0a95b18dc30a44f44a37579dc089c6211&",
-    "thumbnail": "https://cdn.discordapp.com/attachments/1498005985523007580/1498006068390006948/ChatGPT_Image_26_de_abr._de_2026_13_42_25.png?ex=69f4dc5e&is=69f38ade&hm=2dcb6a1075c75f6fe7d760c64059a6e515fdf2fc1dc98086ceeb0a127e8188e1&",
-    "canal_id": 1497999477213102251,
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1491563226712903711,
     "botao1": {
-      "emoji": "<:entrar:1497751466973335592>",
-      "label": "Entrar na Fila",
-      "estilo": "secondary"
-    },
-    "botao2": {
       "emoji": "<:ump:1497751179604787241>",
       "label": "Full Ump Xm8",
       "estilo": "secondary"
     },
+    "botao2": {
+      "emoji": "<:entrar:1497751466973335592>",
+      "label": "Entrar Normal",
+      "estilo": "secondary"
+    },
     "precos": [
       {
-        "id": "5689bc0bc4",
-        "valor": "R$ 0,25",
+        "id": "c0373b83a4",
+        "valor": "R$ 0,20",
         "jogadores": []
       },
       {
-        "id": "b09e163ea7",
+        "id": "41f8ee9df8",
         "valor": "R$ 0,50",
         "jogadores": []
       },
       {
-        "id": "03e760b063",
+        "id": "42479e72b0",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "73687b48e2",
         "valor": "R$ 1,00",
         "jogadores": []
       },
       {
-        "id": "3ef72abb4e",
+        "id": "0d48f94312",
         "valor": "R$ 2,00",
         "jogadores": []
       },
       {
-        "id": "a4eb37fce0",
+        "id": "cfa4356410",
         "valor": "R$ 3,00",
         "jogadores": []
       },
       {
-        "id": "7f46763402",
+        "id": "56abcf3792",
         "valor": "R$ 4,00",
         "jogadores": []
       },
       {
-        "id": "517ebd0728",
+        "id": "ba9518e833",
         "valor": "R$ 5,00",
         "jogadores": []
       },
       {
-        "id": "786ed934f2",
+        "id": "be9d8170c4",
         "valor": "R$ 10,00",
         "jogadores": []
       },
       {
-        "id": "3212ea1b24",
+        "id": "a34e5cab95",
         "valor": "R$ 20,00",
         "jogadores": []
       },
       {
-        "id": "59c1d20f7b",
+        "id": "de8eebcd93",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "4d714572e5",
         "valor": "R$ 50,00",
         "jogadores": []
       },
       {
-        "id": "05e233fd7b",
+        "id": "85501eee79",
         "valor": "R$ 100,00",
-        "jogadores": []
-      },
-      {
-        "id": "d709dafba3",
-        "valor": "R$ 200,00",
         "jogadores": []
       }
     ],
-    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor:**\n[[valor_partida]]\n**Jogadores:**\n[[jogadores_fila]]",
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
     "cor": "#FFDF00",
     "botao_sair": {
-      "emoji": "❌",
+      "emoji": "<:sair:1497751579716091944>",
       "label": "Sair da fila",
       "estilo": "danger"
     },
@@ -598,14 +608,14 @@
     },
     "botoes_entrar": [
       {
-        "emoji": "<:entrar:1497751466973335592>",
-        "label": "Entrar na Fila",
+        "emoji": "<:ump:1497751179604787241>",
+        "label": "Full Ump Xm8",
         "estilo": "secondary",
         "id": "1"
       },
       {
-        "emoji": "<:ump:1497751179604787241>",
-        "label": "Full Ump Xm8",
+        "emoji": "<:entrar:1497751466973335592>",
+        "label": "Entrar Normal",
         "estilo": "secondary",
         "id": "2"
       }
@@ -613,9 +623,9 @@
   },
   "Emulador_1v1": {
     "titulo": "Emulador 1v1",
-    "banner": "https://cdn.discordapp.com/attachments/1498005985523007580/1499517378483191808/ChatGPT_Image_30_de_abr._de_2026_18_05_58.png?ex=69f515e2&is=69f3c462&hm=3c469d0d587552c751480286f5b880a0a95b18dc30a44f44a37579dc089c6211&",
-    "thumbnail": "https://cdn.discordapp.com/attachments/1498005985523007580/1498006068390006948/ChatGPT_Image_26_de_abr._de_2026_13_42_25.png?ex=69f4dc5e&is=69f38ade&hm=2dcb6a1075c75f6fe7d760c64059a6e515fdf2fc1dc98086ceeb0a127e8188e1&",
-    "canal_id": 1497999480765812767,
+    "banner": "",
+    "thumbnail": "",
+    "canal_id": 1491563227929116764,
     "botao1": {
       "emoji": "<:geloff:1497750981172134019>",
       "label": "Gelo Normal",
@@ -628,63 +638,68 @@
     },
     "precos": [
       {
-        "id": "f2ee587f82",
-        "valor": "R$ 0,25",
+        "id": "c6f042aa92",
+        "valor": "R$ 0,20",
         "jogadores": []
       },
       {
-        "id": "d5009c5663",
+        "id": "06fff33184",
         "valor": "R$ 0,50",
         "jogadores": []
       },
       {
-        "id": "7353069005",
+        "id": "3531007091",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "46282d0045",
         "valor": "R$ 1,00",
         "jogadores": []
       },
       {
-        "id": "200bf441f9",
+        "id": "be684174a0",
         "valor": "R$ 2,00",
         "jogadores": []
       },
       {
-        "id": "46f185a538",
+        "id": "222b9625c1",
         "valor": "R$ 3,00",
         "jogadores": []
       },
       {
-        "id": "f70d32fa0c",
+        "id": "dc9d63d1f1",
         "valor": "R$ 4,00",
         "jogadores": []
       },
       {
-        "id": "ce826ef972",
+        "id": "fd6f927c89",
         "valor": "R$ 5,00",
         "jogadores": []
       },
       {
-        "id": "08a560406e",
+        "id": "fc93841ab9",
         "valor": "R$ 10,00",
         "jogadores": []
       },
       {
-        "id": "97c3893c85",
+        "id": "bd11472d58",
         "valor": "R$ 20,00",
         "jogadores": []
       },
       {
-        "id": "4876fadb7a",
+        "id": "143b4fa1e9",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "a66aa251be",
         "valor": "R$ 50,00",
         "jogadores": []
       },
       {
-        "id": "94c9fe2659",
+        "id": "a4806329a2",
         "valor": "R$ 100,00",
-        "jogadores": []
-      },
-      {
-        "id": "c819cec429",
-        "valor": "R$ 200,00",
         "jogadores": []
       }
     ],
@@ -719,28 +734,88 @@
     "titulo": "Emulador 2v2",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1495091000031445315,
+    "canal_id": 1491563228424310816,
     "botao1": {
-      "emoji": "🎮",
-      "label": "Opção 1",
+      "emoji": "<:ump:1497751179604787241>",
+      "label": "Full Ump Xm8",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "🔫",
-      "label": "Opção 2",
+      "emoji": "<:entrar:1497751466973335592>",
+      "label": "Entrar Normal",
       "estilo": "secondary"
     },
     "precos": [
       {
-        "id": "879e3cfb48",
+        "id": "e3617c0a47",
+        "valor": "R$ 0,20",
+        "jogadores": []
+      },
+      {
+        "id": "0ea03f9d83",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "9dc77dcac8",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "72fb5f4fa6",
         "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "e962515be5",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "b8fbe95345",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "7c1cb39da1",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "521cc12e2f",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "d9b792d44f",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "1483047460",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "66fd7d5f75",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "93faf30c51",
+        "valor": "R$ 50,00",
+        "jogadores": []
+      },
+      {
+        "id": "86bfe7a9b7",
+        "valor": "R$ 100,00",
         "jogadores": []
       }
     ],
-    "descricao_template": "",
-    "cor": "",
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
+    "cor": "#FFDF00",
     "botao_sair": {
-      "emoji": "❌",
+      "emoji": "<:sair:1497751579716091944>",
       "label": "Sair da fila",
       "estilo": "danger"
     },
@@ -751,16 +826,16 @@
     },
     "botoes_entrar": [
       {
-        "id": "1",
-        "emoji": "🎮",
-        "label": "Opção 1",
-        "estilo": "secondary"
+        "emoji": "<:ump:1497751179604787241>",
+        "label": "Full Ump Xm8",
+        "estilo": "secondary",
+        "id": "1"
       },
       {
-        "id": "2",
-        "emoji": "🔫",
-        "label": "Opção 2",
-        "estilo": "secondary"
+        "emoji": "<:entrar:1497751466973335592>",
+        "label": "Entrar Normal",
+        "estilo": "secondary",
+        "id": "2"
       }
     ]
   },
@@ -768,28 +843,88 @@
     "titulo": "Emulador 3v3",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1495091000031445315,
+    "canal_id": 1491563230177394870,
     "botao1": {
-      "emoji": "🎮",
-      "label": "Opção 1",
+      "emoji": "<:ump:1497751179604787241>",
+      "label": "Full Ump Xm8",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "🔫",
-      "label": "Opção 2",
+      "emoji": "<:entrar:1497751466973335592>",
+      "label": "Entrar Normal",
       "estilo": "secondary"
     },
     "precos": [
       {
-        "id": "f836e7f975",
+        "id": "820930e378",
+        "valor": "R$ 0,20",
+        "jogadores": []
+      },
+      {
+        "id": "5979380940",
+        "valor": "R$ 0,50",
+        "jogadores": []
+      },
+      {
+        "id": "9929e4d481",
+        "valor": "R$ 0,75",
+        "jogadores": []
+      },
+      {
+        "id": "283704beee",
         "valor": "R$ 1,00",
+        "jogadores": []
+      },
+      {
+        "id": "91b0d896b4",
+        "valor": "R$ 2,00",
+        "jogadores": []
+      },
+      {
+        "id": "c950e4e184",
+        "valor": "R$ 3,00",
+        "jogadores": []
+      },
+      {
+        "id": "ebc4749c8b",
+        "valor": "R$ 4,00",
+        "jogadores": []
+      },
+      {
+        "id": "cb21ee448c",
+        "valor": "R$ 5,00",
+        "jogadores": []
+      },
+      {
+        "id": "0a82eee72b",
+        "valor": "R$ 10,00",
+        "jogadores": []
+      },
+      {
+        "id": "c9825d07d1",
+        "valor": "R$ 20,00",
+        "jogadores": []
+      },
+      {
+        "id": "698524db92",
+        "valor": "R$ 40,00",
+        "jogadores": []
+      },
+      {
+        "id": "eae27612cb",
+        "valor": "R$ 50,00",
+        "jogadores": []
+      },
+      {
+        "id": "cf1d2c7bad",
+        "valor": "R$ 100,00",
         "jogadores": []
       }
     ],
-    "descricao_template": "",
-    "cor": "",
+    "descricao_template": "**Filas [[modo_jogo]]**\n**Valor** : \n[[valor_partida]]\n**Players** :\n[[jogadores_fila]]",
+    "cor": "#FFDF00",
     "botao_sair": {
-      "emoji": "❌",
+      "emoji": "<:sair:1497751579716091944>",
       "label": "Sair da fila",
       "estilo": "danger"
     },
@@ -800,16 +935,16 @@
     },
     "botoes_entrar": [
       {
-        "id": "1",
-        "emoji": "🎮",
-        "label": "Opção 1",
-        "estilo": "secondary"
+        "emoji": "<:ump:1497751179604787241>",
+        "label": "Full Ump Xm8",
+        "estilo": "secondary",
+        "id": "1"
       },
       {
-        "id": "2",
-        "emoji": "🔫",
-        "label": "Opção 2",
-        "estilo": "secondary"
+        "emoji": "<:entrar:1497751466973335592>",
+        "label": "Entrar Normal",
+        "estilo": "secondary",
+        "id": "2"
       }
     ]
   },
