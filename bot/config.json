@@ -197,80 +197,80 @@
     "titulo": "Mobile 1v1",
     "banner": "",
     "thumbnail": "",
-    "canal_id": 1491563223181168641,
+    "canal_id": 1497999469445386421,
     "botao1": {
-      "emoji": "<:geloff:1497750981172134019>",
-      "label": "Gelo Normal",
+      "emoji": "<:ump:1497751179604787241>",
+      "label": "Full Ump Xm8",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "<:geloff:1497750981172134019>",
-      "label": "Gelo Infinito",
+      "emoji": "<:entrar:1497751466973335592>",
+      "label": "Entrar Normal",
       "estilo": "secondary"
     },
     "precos": [
       {
-        "id": "0e4cf1dd00",
+        "id": "b0dfc2555e",
         "valor": "R$ 100,00",
         "jogadores": []
       },
       {
-        "id": "217e5d1953",
+        "id": "49ee4859b7",
         "valor": "R$ 50,00",
         "jogadores": []
       },
       {
-        "id": "2d9953979e",
+        "id": "7c2cd1f9db",
         "valor": "R$ 40,00",
         "jogadores": []
       },
       {
-        "id": "53ef5428bb",
+        "id": "90b91624c2",
         "valor": "R$ 20,00",
         "jogadores": []
       },
       {
-        "id": "1098d6b42c",
+        "id": "79e84fd9d7",
         "valor": "R$ 10,00",
         "jogadores": []
       },
       {
-        "id": "b8f8882cc7",
+        "id": "940a8a4779",
         "valor": "R$ 5,00",
         "jogadores": []
       },
       {
-        "id": "4ce6223f5c",
+        "id": "6f80843966",
         "valor": "R$ 4,00",
         "jogadores": []
       },
       {
-        "id": "d826262011",
+        "id": "28481c2384",
         "valor": "R$ 3,00",
         "jogadores": []
       },
       {
-        "id": "638870bc40",
+        "id": "178897f9a3",
         "valor": "R$ 2,00",
         "jogadores": []
       },
       {
-        "id": "913483572c",
+        "id": "6b3d469ccb",
         "valor": "R$ 1,00",
         "jogadores": []
       },
       {
-        "id": "d7a047c038",
+        "id": "73a4a0e019",
         "valor": "R$ 0,75",
         "jogadores": []
       },
       {
-        "id": "afbebe9756",
+        "id": "1f28d761e6",
         "valor": "R$ 0,50",
         "jogadores": []
       },
       {
-        "id": "eab559c96f",
+        "id": "9e37af44c0",
         "valor": "R$ 0,20",
         "jogadores": []
       }
@@ -289,16 +289,16 @@
     },
     "botoes_entrar": [
       {
-        "id": "1",
-        "emoji": "<:geloff:1497750981172134019>",
-        "label": "Gelo Normal",
-        "estilo": "secondary"
+        "emoji": "<:ump:1497751179604787241>",
+        "label": "Full Ump Xm8",
+        "estilo": "secondary",
+        "id": "1"
       },
       {
-        "id": "2",
-        "emoji": "<:geloff:1497750981172134019>",
-        "label": "Gelo Infinito",
-        "estilo": "secondary"
+        "emoji": "<:entrar:1497751466973335592>",
+        "label": "Entrar Normal",
+        "estilo": "secondary",
+        "id": "2"
       }
     ]
   },

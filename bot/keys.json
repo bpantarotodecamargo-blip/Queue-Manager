@@ -13,6 +13,14 @@
       "criada_em": "2026-05-02 14:02 UTC",
       "ativada_em": "2026-05-02 14:02 UTC",
       "expira_em": "2026-06-01 14:02 UTC"
+    },
+    "4457-67F6-A8B4-CAB8": {
+      "plano": "platina",
+      "guild_id": "1489942012940648510",
+      "ativada": true,
+      "criada_em": "2026-05-02 15:21 UTC",
+      "ativada_em": "2026-05-02 15:21 UTC",
+      "expira_em": "2026-06-01 15:21 UTC"
     }
   },
   "guilds": {
@@ -21,6 +29,12 @@
       "key_usada": "CD40-1BD3-93A0-8DC4",
       "ativada_em": "2026-05-02 14:02 UTC",
       "expira_em": "2026-06-01 14:02 UTC"
+    },
+    "1489942012940648510": {
+      "plano": "platina",
+      "key_usada": "4457-67F6-A8B4-CAB8",
+      "ativada_em": "2026-05-02 15:21 UTC",
+      "expira_em": "2026-06-01 15:21 UTC"
     }
   }
 }
