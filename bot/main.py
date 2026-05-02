@@ -413,6 +413,17 @@ def carregar_config() -> dict:
         "thumbnail": "",
         "cor":       f"#{COR_PADRAO:06X}",
     })
+    g.setdefault("regras_config", {
+        "banner":    "",
+        "thumbnail": "",
+        "cor":       "",
+        "rodape":    "",
+    })
+    _rc = g["regras_config"]
+    _rc.setdefault("banner",    "")
+    _rc.setdefault("thumbnail", "")
+    _rc.setdefault("cor",       "")
+    _rc.setdefault("rodape",    "")
     g.setdefault("mediadores",     {})   # {user_id_str: {"tipo": "...", "chave": "...", "nome": "..."}}
     g.setdefault("fila_mediador",  [])   # [user_id_str, ...]
 
@@ -5472,12 +5483,26 @@ LOGO_FILENAME = "logo.png"
 LOGO_URL = f"attachment://{LOGO_FILENAME}"
 
 
-def _embeds_regras_x1(color: int = COR_PADRAO) -> list[discord.Embed]:
-    e1 = discord.Embed(
-        title="📜 REGRAS X1 — GELO INFINITO",
-        color=color,
-    )
-    e1.set_image(url=LOGO_URL)
+def _get_regras_config(config: dict) -> dict:
+    return config.get("global", {}).get("regras_config", {
+        "banner": "", "thumbnail": "", "cor": "", "rodape": "",
+    })
+
+
+def _aplicar_aparencia_regras(embed: discord.Embed, banner_url: str, thumbnail_url: str, rodape: str):
+    if thumbnail_url:
+        embed.set_thumbnail(url=thumbnail_url)
+    if banner_url:
+        embed.set_image(url=banner_url)
+    else:
+        embed.set_image(url=LOGO_URL)
+    if rodape:
+        embed.set_footer(text=rodape)
+
+
+def _embeds_regras_x1(color: int = COR_PADRAO, banner_url: str = "", thumbnail_url: str = "", rodape: str = "") -> list[discord.Embed]:
+    e1 = discord.Embed(title="📜 REGRAS X1 — GELO INFINITO", color=color)
+    _aplicar_aparencia_regras(e1, banner_url, thumbnail_url, rodape)
     e1.add_field(
         name="✔️ PERMITIDO",
         value=(
@@ -5500,11 +5525,8 @@ def _embeds_regras_x1(color: int = COR_PADRAO) -> list[discord.Embed]:
         inline=False,
     )
 
-    e2 = discord.Embed(
-        title="📜 REGRAS X1 — GEL NORMAL",
-        color=color,
-    )
-    e2.set_image(url=LOGO_URL)
+    e2 = discord.Embed(title="📜 REGRAS X1 — GEL NORMAL", color=color)
+    _aplicar_aparencia_regras(e2, banner_url, thumbnail_url, rodape)
     e2.add_field(
         name="✔️ PERMITIDO",
         value=(
@@ -5527,12 +5549,9 @@ def _embeds_regras_x1(color: int = COR_PADRAO) -> list[discord.Embed]:
     return [e1, e2]
 
 
-def _embeds_regras_geral(color: int = COR_PADRAO) -> list[discord.Embed]:
-    e1 = discord.Embed(
-        title="🚹 PERSONAGENS",
-        color=color,
-    )
-    e1.set_image(url=LOGO_URL)
+def _embeds_regras_geral(color: int = COR_PADRAO, banner_url: str = "", thumbnail_url: str = "", rodape: str = "") -> list[discord.Embed]:
+    e1 = discord.Embed(title="🚹 PERSONAGENS", color=color)
+    _aplicar_aparencia_regras(e1, banner_url, thumbnail_url, rodape)
     e1.add_field(
         name="✅ PERSONAGENS PERMITIDOS",
         value=(
@@ -5554,11 +5573,8 @@ def _embeds_regras_geral(color: int = COR_PADRAO) -> list[discord.Embed]:
         inline=False,
     )
 
-    e2 = discord.Embed(
-        title="🔫 ARMAS",
-        color=color,
-    )
-    e2.set_image(url=LOGO_URL)
+    e2 = discord.Embed(title="🔫 ARMAS", color=color)
+    _aplicar_aparencia_regras(e2, banner_url, thumbnail_url, rodape)
     e2.add_field(
         name="✔️ ARMAS PERMITIDAS",
         value=(
@@ -5589,11 +5605,8 @@ def _embeds_regras_geral(color: int = COR_PADRAO) -> list[discord.Embed]:
         inline=False,
     )
 
-    e3 = discord.Embed(
-        title="🚨 REGRAS GERAIS — QUEBRA DE REGRA & COMBINADOS",
-        color=color,
-    )
-    e3.set_image(url=LOGO_URL)
+    e3 = discord.Embed(title="🚨 REGRAS GERAIS — QUEBRA DE REGRA & COMBINADOS", color=color)
+    _aplicar_aparencia_regras(e3, banner_url, thumbnail_url, rodape)
     e3.add_field(
         name="➡️ QUEBRA DE REGRA",
         value=(
@@ -5659,26 +5672,32 @@ async def regras_cmd(
 
     await interaction.response.defer(ephemeral=True)
 
-    config = carregar_config()
-    _cor = cor_global(config) if interaction.guild else COR_PADRAO
+    config   = carregar_config()
+    rcfg     = _get_regras_config(config)
+    _cor     = parse_cor(rcfg["cor"]) if rcfg["cor"] else (cor_global(config) if interaction.guild else COR_PADRAO)
+    banner   = rcfg.get("banner", "")
+    thumb    = rcfg.get("thumbnail", "")
+    rodape   = rcfg.get("rodape", "")
 
+    kw = dict(color=_cor, banner_url=banner, thumbnail_url=thumb, rodape=rodape)
     embeds: list[discord.Embed] = []
     if tipo.value == "x1":
-        embeds = _embeds_regras_x1(color=_cor)
+        embeds = _embeds_regras_x1(**kw)
     elif tipo.value == "geral":
-        embeds = _embeds_regras_geral(color=_cor)
+        embeds = _embeds_regras_geral(**kw)
     else:
-        embeds = _embeds_regras_x1(color=_cor) + _embeds_regras_geral(color=_cor)
+        embeds = _embeds_regras_x1(**kw) + _embeds_regras_geral(**kw)
 
-    # Envia os embeds no canal destino (máx 10 por mensagem)
-    # Cada chunk precisa de um novo discord.File (objetos File não são reutilizáveis)
+    # Se não há banner URL configurado, envia o logo.png como arquivo
+    usar_arquivo = not banner and LOGO_PATH.exists()
+
     try:
         for i in range(0, len(embeds), 10):
-            arquivo = discord.File(LOGO_PATH, filename=LOGO_FILENAME) if LOGO_PATH.exists() else None
-            if arquivo:
-                await destino.send(file=arquivo, embeds=embeds[i:i+10])
+            chunk = embeds[i:i+10]
+            if usar_arquivo:
+                await destino.send(file=discord.File(LOGO_PATH, filename=LOGO_FILENAME), embeds=chunk)
             else:
-                await destino.send(embeds=embeds[i:i+10])
+                await destino.send(embeds=chunk)
     except discord.Forbidden:
         await interaction.followup.send(
             f"❌ Não tenho permissão para enviar mensagens em {destino.mention}.",
@@ -5686,7 +5705,6 @@ async def regras_cmd(
         )
         return
 
-    # Confirmação discreta (ephemeral) para quem usou o comando
     if enviando_em_outro:
         await interaction.followup.send(
             f"✅ Regras **{tipo.name}** enviadas em {destino.mention}.",
@@ -5694,6 +5712,106 @@ async def regras_cmd(
         )
     else:
         await interaction.followup.send("✅ Regras enviadas.", ephemeral=True)
+
+
+# ──────────────────────────────────────────────
+# /painel_regras — Modal, View e Comando
+# ──────────────────────────────────────────────
+
+def build_embed_painel_regras(config: dict) -> discord.Embed:
+    rcfg  = _get_regras_config(config)
+    _cor  = parse_cor(rcfg["cor"]) if rcfg["cor"] else cor_global(config)
+    embed = discord.Embed(
+        title="⚙️ Painel de Personalização — Regras",
+        description=(
+            "Configure a aparência dos embeds enviados pelo `/regras`.\n"
+            "A **cor** e o **banner** dos embeds de regras são independentes do embed global."
+        ),
+        color=_cor,
+    )
+    embed.add_field(
+        name="🖼️ Banner",
+        value=f"`{rcfg.get('banner') or '— usa logo padrão (logo.png) —'}`",
+        inline=False,
+    )
+    embed.add_field(
+        name="🔷 Thumbnail",
+        value=f"`{rcfg.get('thumbnail') or '— nenhum —'}`",
+        inline=False,
+    )
+    embed.add_field(
+        name="🎨 Cor",
+        value=f"`{rcfg.get('cor') or '— usa cor global —'}`",
+        inline=True,
+    )
+    embed.add_field(
+        name="📝 Rodapé",
+        value=f"`{rcfg.get('rodape') or '— nenhum —'}`",
+        inline=True,
+    )
+    if rcfg.get("thumbnail"):
+        embed.set_thumbnail(url=rcfg["thumbnail"])
+    if rcfg.get("banner"):
+        embed.set_image(url=rcfg["banner"])
+    embed.set_footer(text="Clique em ✏️ Editar para personalizar • 🔄 Resetar para voltar ao padrão.")
+    return embed
+
+
+class EditarRegrasModal(Modal):
+    def __init__(self, config: dict):
+        super().__init__(title="Personalizar Regras")
+        rcfg = _get_regras_config(config)
+        self.banner    = TextInput(label="URL do Banner (vazio = usa logo.png)",    default=rcfg.get("banner",""),    required=False, max_length=500, placeholder="https://...")
+        self.thumbnail = TextInput(label="URL da Thumbnail (vazio = nenhuma)",      default=rcfg.get("thumbnail",""), required=False, max_length=500, placeholder="https://...")
+        self.cor       = TextInput(label="Cor dos embeds (hex, vazio = cor global)", default=rcfg.get("cor",""),       required=False, max_length=10,  placeholder="#FFD700")
+        self.rodape    = TextInput(label="Texto do Rodapé (vazio = sem rodapé)",     default=rcfg.get("rodape",""),    required=False, max_length=100, placeholder="© Titan ORG — Regras vigentes")
+        for it in (self.banner, self.thumbnail, self.cor, self.rodape):
+            self.add_item(it)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config()
+        rcfg = config["global"].setdefault("regras_config", {})
+        rcfg["banner"]    = self.banner.value.strip()
+        rcfg["thumbnail"] = self.thumbnail.value.strip()
+        rcfg["cor"]       = self.cor.value.strip()
+        rcfg["rodape"]    = self.rodape.value.strip()
+        salvar_config(config)
+        await interaction.response.edit_message(embed=build_embed_painel_regras(config), view=PainelRegrasView())
+
+
+class _BtnEditarRegras(Button):
+    def __init__(self):
+        super().__init__(label="✏️  Editar", style=discord.ButtonStyle.primary, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        await interaction.response.send_modal(EditarRegrasModal(config))
+
+
+class _BtnResetarRegras(Button):
+    def __init__(self):
+        super().__init__(label="🔄  Resetar padrão", style=discord.ButtonStyle.danger, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config()
+        config["global"]["regras_config"] = {"banner": "", "thumbnail": "", "cor": "", "rodape": ""}
+        salvar_config(config)
+        await interaction.response.edit_message(embed=build_embed_painel_regras(config), view=PainelRegrasView())
+
+
+class PainelRegrasView(View):
+    def __init__(self):
+        super().__init__(timeout=300)
+        self.add_item(_BtnEditarRegras())
+        self.add_item(_BtnResetarRegras())
+
+
+@bot.tree.command(name="painel_regras", description="Personalize a aparência dos embeds de regras")
+async def painel_regras_cmd(interaction: discord.Interaction):
+    if not await _check_plano(interaction, "regras"):
+        return
+    config = carregar_config()
+    await interaction.response.send_message(embed=build_embed_painel_regras(config), view=PainelRegrasView(), ephemeral=True)
 
 
 def _run_health_server():
