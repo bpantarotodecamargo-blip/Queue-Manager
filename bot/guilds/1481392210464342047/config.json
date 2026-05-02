@@ -1599,25 +1599,25 @@
     "thumbnail": "",
     "canal_id": 1491563243003711533,
     "botao1": {
-      "emoji": "<:geloff:1497750981172134019>",
-      "label": "Gelo Normal",
+      "emoji": "<:mobile:1500217447712690377>",
+      "label": "Mobile",
       "estilo": "secondary"
     },
     "botao2": {
-      "emoji": "<:geloff:1497750981172134019>",
-      "label": "Gelo Infinito",
+      "emoji": "<:entrar:1497751466973335592>",
+      "label": "Entrar na Fila",
       "estilo": "secondary"
     },
     "botoes_entrar": [
       {
-        "emoji": "<:geloff:1497750981172134019>",
-        "label": "Gelo Normal",
+        "emoji": "<:mobile:1500217447712690377>",
+        "label": "Mobile",
         "estilo": "secondary",
         "id": "1"
       },
       {
-        "emoji": "<:geloff:1497750981172134019>",
-        "label": "Gelo Infinito",
+        "emoji": "<:entrar:1497751466973335592>",
+        "label": "Entrar na Fila",
         "estilo": "secondary",
         "id": "2"
       }

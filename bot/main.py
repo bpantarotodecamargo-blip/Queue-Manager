@@ -546,6 +546,12 @@ def carregar_config(guild_id: int | None = None) -> dict:
         b.setdefault("mensagem_inicial", "Olá {user}! Descreva sua questão e aguarde um atendente.")
         b.setdefault("cargo_atendimento_id", None)
 
+    # Opções de gelo para filas Full Soco (configurável por servidor)
+    g.setdefault("full_soco_gelo", [
+        {"id": "gelo_infinito", "label": "Gelo Infinito", "emoji": "🧊", "estilo": "primary"},
+        {"id": "gelo_normal",   "label": "Gelo Normal",   "emoji": "❄️",  "estilo": "secondary"},
+    ])
+
     # Aparência por servidor: {guild_id_str: {"bio": "..."}}
     data.setdefault("aparencias", {})
 
@@ -1723,6 +1729,8 @@ class ModoConfigView(View):
         self.add_item(_BtnVisualizar(ch))
         self.add_item(_BtnGerenciarPrecos(ch, painel_msg))
         self.add_item(_BtnImportarPersonalizacao(ch, cat, painel_msg))
+        if cat == "Full Soco":
+            self.add_item(_BtnConfigGelo(ch, painel_msg))
         self.add_item(_BtnVoltarCategoria(cat, painel_msg))
 
 
@@ -1839,6 +1847,82 @@ class _BtnVoltarCategoria(Button):
     async def callback(self, interaction: discord.Interaction):
         config = carregar_config(interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_categoria(self.cat, config), view=CategoriaView(self.cat, self.painel_msg))
+
+
+# ──────────────────────────────────────────────
+# Configuração de Gelo — Full Soco
+# ──────────────────────────────────────────────
+
+class _BtnConfigGelo(Button):
+    """Botão exclusivo dos modos Full Soco para configurar as opções de gelo."""
+    def __init__(self, ch: str, painel_msg=None):
+        super().__init__(label="🧊 Opções de Gelo", style=discord.ButtonStyle.secondary, row=2)
+        self.ch, self.painel_msg = ch, painel_msg
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(EditarGeloModal(self.ch, self.painel_msg, interaction.guild_id))
+
+
+class EditarGeloModal(Modal):
+    """Modal para editar as opções de gelo das filas Full Soco."""
+    def __init__(self, ch: str, painel_msg=None, guild_id: int | None = None):
+        super().__init__(title="🧊 Opções de Gelo — Full Soco")
+        self.ch, self.painel_msg = ch, painel_msg
+        config = carregar_config(guild_id)
+        gelo_opts = config.get("global", {}).get("full_soco_gelo", [
+            {"id": "gelo_infinito", "label": "Gelo Infinito", "emoji": "🧊", "estilo": "primary"},
+            {"id": "gelo_normal",   "label": "Gelo Normal",   "emoji": "❄️",  "estilo": "secondary"},
+        ])
+        linhas = []
+        for opt in gelo_opts:
+            e = opt.get("emoji", "")
+            l = opt.get("label", "Gelo")
+            s = ESTILOS_PT.get(opt.get("estilo", "primary"), "azul")
+            linhas.append(f"{e} {l} | {s}")
+
+        self.opcoes = TextInput(
+            label="Opções (uma por linha: emoji label | cor)",
+            style=discord.TextStyle.paragraph,
+            default="\n".join(linhas),
+            placeholder="🧊 Gelo Infinito | azul\n❄️ Gelo Normal | cinza",
+            max_length=500,
+            required=True,
+        )
+        self.add_item(self.opcoes)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+        linhas = [l.strip() for l in self.opcoes.value.strip().splitlines() if l.strip()]
+        novas = []
+        for linha in linhas[:5]:
+            parts = linha.split("|", 1)
+            estilo_str = parts[1].strip() if len(parts) > 1 else "primary"
+            estilo = _parse_estilo(estilo_str) or "primary"
+            main = parts[0].strip()
+            tokens = main.split(None, 1)
+            if not tokens:
+                continue
+            emoji = tokens[0] if len(tokens) >= 1 else ""
+            label = tokens[1].strip() if len(tokens) >= 2 else tokens[0]
+            # Se o primeiro token for longo demais, provavelmente é label sem emoji
+            if len(emoji) > 30:
+                label, emoji = emoji, ""
+            novas.append({"id": gerar_id(), "label": label, "emoji": emoji, "estilo": estilo})
+
+        if not novas:
+            await interaction.response.send_message("❌ Nenhuma opção válida.", ephemeral=True)
+            return
+
+        config["global"]["full_soco_gelo"] = novas
+        salvar_config(config, interaction.guild_id)
+
+        cat, _ = split_chave(self.ch)
+        await interaction.response.edit_message(
+            embed=build_embed_config_modo(self.ch, config),
+            view=ModoConfigView(self.ch, cat, self.painel_msg),
+        )
+        resumo = "\n".join(f"• {o.get('emoji','')} **{o['label']}** ({ESTILOS_PT.get(o['estilo'],'?')})" for o in novas)
+        await interaction.followup.send(f"✅ {len(novas)} opção(ões) de gelo salva(s)!\n{resumo}", ephemeral=True)
 
 
 # Campos copiados na importação de personalização (NÃO inclui canal_id nem titulo)
@@ -2529,6 +2613,14 @@ class _EntrarBtn(Button):
         if len(preco["jogadores"]) >= total:
             await interaction.response.send_message("❌ A fila está cheia!", ephemeral=True); return
 
+        # ── Full Soco: mostra seletor de gelo antes de entrar ──
+        cat, _ = split_chave(ch)
+        if cat == "Full Soco":
+            embed = build_embed_gelo_selector(ch, preco, config)
+            view  = FullSocoGeloView(ch, self.preco_id, self.btn_id, config)
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            return
+
         preco["jogadores"].append(uid)
         salvar_config(config, interaction.guild_id)
 
@@ -2590,6 +2682,120 @@ class _LimparBtn(Button):
         salvar_config(config, interaction.guild_id)
         await interaction.response.edit_message(embed=build_embed_fila(ch, preco, config), view=FilaView(ch, self.preco_id, config=config))
         await interaction.followup.send(f"🗑️ Fila limpa por {interaction.user.mention}.")
+
+
+# ──────────────────────────────────────────────
+# Full Soco — Seletor de Gelo
+# ──────────────────────────────────────────────
+
+def build_embed_gelo_selector(ch: str, preco: dict, config: dict) -> discord.Embed:
+    """Embed efêmero mostrado quando alguém clica para entrar numa fila Full Soco."""
+    gelo_opts = config.get("global", {}).get("full_soco_gelo", [])
+    linhas = "\n".join(
+        f"{o.get('emoji', '🧊')} **{o.get('label', 'Gelo')}**"
+        for o in gelo_opts
+    )
+    embed = discord.Embed(
+        title="🧊 Escolha o Tipo de Gelo",
+        description=(
+            f"Fila: **{display(ch)}** — `{preco.get('valor', '')}` "
+            f"({len(preco.get('jogadores', []))}/{jogadores_da_chave(ch)} jogadores)\n\n"
+            f"Selecione o tipo de gelo para entrar:\n\n{linhas}"
+        ),
+        color=cor_efetiva(config, ch),
+    )
+    return embed
+
+
+class FullSocoGeloView(View):
+    """View efêmera exibida após clicar num botão de entrada de fila Full Soco."""
+    def __init__(self, ch: str, preco_id: str, btn_id: str, config: dict):
+        super().__init__(timeout=60)
+        gelo_opts = config.get("global", {}).get("full_soco_gelo", [
+            {"id": "gelo_infinito", "label": "Gelo Infinito", "emoji": "🧊", "estilo": "primary"},
+            {"id": "gelo_normal",   "label": "Gelo Normal",   "emoji": "❄️",  "estilo": "secondary"},
+        ])
+        for opt in gelo_opts:
+            self.add_item(_BtnGeloOpcao(
+                ch, preco_id,
+                opt.get("label", "Gelo"),
+                opt.get("emoji", "🧊"),
+                opt.get("estilo", "primary"),
+            ))
+
+
+class _BtnGeloOpcao(Button):
+    def __init__(self, ch: str, preco_id: str, label: str, emoji: str, estilo: str):
+        super().__init__(
+            label=label,
+            emoji=to_discord_emoji(emoji) if emoji else None,
+            style=ESTILOS_BTN.get(estilo, discord.ButtonStyle.primary),
+        )
+        self.ch        = ch
+        self.preco_id  = preco_id
+        self.gelo_label = label
+        self.gelo_emoji = emoji
+
+    async def callback(self, interaction: discord.Interaction):
+        config = carregar_config(interaction.guild_id)
+
+        if not config.get("global", {}).get("filas_ativas", True):
+            await interaction.response.edit_message(content="🛑 As filas estão **desativadas**.", embed=None, view=None)
+            return
+
+        ch, preco = encontrar_preco(config, self.preco_id)
+        if preco is None:
+            await interaction.response.edit_message(content="❌ Esta fila não existe mais.", embed=None, view=None)
+            return
+
+        uid   = str(interaction.user.id)
+        total = jogadores_da_chave(ch)
+
+        if uid in preco["jogadores"]:
+            await interaction.response.edit_message(content="⚠️ Você já está nesta fila!", embed=None, view=None)
+            return
+        if len(preco["jogadores"]) >= total:
+            await interaction.response.edit_message(content="❌ A fila está cheia!", embed=None, view=None)
+            return
+
+        preco["jogadores"].append(uid)
+        salvar_config(config, interaction.guild_id)
+
+        # Confirma entrada na mensagem efêmera
+        await interaction.response.edit_message(
+            content=f"✅ Você entrou na fila como **{self.gelo_emoji} {self.gelo_label}**!",
+            embed=None,
+            view=None,
+        )
+
+        # Atualiza a mensagem original da fila no canal
+        loc = _filas_msg_ids.get(self.preco_id)
+        if loc:
+            canal_id, msg_id = loc
+            canal = interaction.guild.get_channel(canal_id)
+            if canal:
+                try:
+                    msg = await canal.fetch_message(msg_id)
+                    await msg.edit(embed=build_embed_fila(ch, preco, config), view=FilaView(ch, self.preco_id, config=config))
+                except Exception:
+                    pass
+
+        # Se a fila encheu, inicia a partida
+        if len(preco["jogadores"]) >= total:
+            jogadores_partida = list(preco["jogadores"])
+            preco["jogadores"] = []
+            salvar_config(config, interaction.guild_id)
+            # Atualiza mensagem da fila (limpa jogadores)
+            if loc:
+                canal_id, msg_id = loc
+                canal = interaction.guild.get_channel(canal_id)
+                if canal:
+                    try:
+                        msg = await canal.fetch_message(msg_id)
+                        await msg.edit(embed=build_embed_fila(ch, preco, config), view=FilaView(ch, self.preco_id, config=config))
+                    except Exception:
+                        pass
+            await _fila_completa(interaction, ch, preco, jogadores_partida, config)
 
 
 # ──────────────────────────────────────────────
