@@ -1126,10 +1126,9 @@ async def _republicar_embeds_modo(ch: str, config: dict):
             continue
         try:
             msg = await canal.fetch_message(msg_id)
-            b1, b2 = config[ch]["botao1"], config[ch]["botao2"]
             await msg.edit(
                 embed=build_embed_fila(ch, preco, config),
-                view=FilaView(ch, preco["id"], b1, b2),
+                view=FilaView(ch, preco["id"], config=config),
             )
         except Exception:
             pass
@@ -1465,9 +1464,8 @@ class AdicionarPrecoModal(Modal):
         config[self.ch]["precos"] = _ordenar_precos(config[self.ch]["precos"])
         salvar_config(config, interaction.guild_id)
 
-        b1 = config[self.ch]["botao1"]; b2 = config[self.ch]["botao2"]
         for nid in novos_ids:
-            bot.add_view(FilaView(self.ch, nid, b1, b2))
+            bot.add_view(FilaView(self.ch, nid, config=config))
 
         view = GerenciarPrecosView(self.ch, self.painel_msg, interaction.guild_id)
         view.selected_id = novos_ids[-1]
@@ -1567,12 +1565,10 @@ class EditarListaPrecosModal(Modal):
         salvar_config(config, interaction.guild_id)
 
         # Registra views para preços novos
-        b1 = config[self.ch]["botao1"]
-        b2 = config[self.ch]["botao2"]
         ids_antigos = {p["id"] for p in precos_anteriores}
         for p in config[self.ch]["precos"]:
             if p["id"] not in ids_antigos:
-                bot.add_view(FilaView(self.ch, p["id"], b1, b2))
+                bot.add_view(FilaView(self.ch, p["id"], config=config))
 
         removidos = len(precos_anteriores) - sum(1 for p in nova_lista if p["id"] in ids_antigos)
         adicionados = sum(1 for p in nova_lista if p["id"] not in ids_antigos)
@@ -2472,7 +2468,7 @@ MAX_BOTOES_ENTRAR = 8
 
 
 class FilaView(View):
-    def __init__(self, ch: str, preco_id: str, *_legacy, config: dict | None = None):
+    def __init__(self, ch: str, preco_id: str, *_legacy, config: dict | None = None, guild_id: int | None = None):
         """Cria a view dos botões da fila lendo do config (N entrar + sair + limpar).
 
         Aceita assinatura legada (ch, preco_id, b1, b2) — os args extras são ignorados
@@ -2536,15 +2532,14 @@ class _EntrarBtn(Button):
         preco["jogadores"].append(uid)
         salvar_config(config, interaction.guild_id)
 
-        b1, b2 = config[ch]["botao1"], config[ch]["botao2"]
-        view   = FilaView(ch, self.preco_id, b1, b2)
+        view = FilaView(ch, self.preco_id, config=config)
         await interaction.response.edit_message(embed=build_embed_fila(ch, preco, config), view=view)
 
         if len(preco["jogadores"]) >= total:
             jogadores_partida = list(preco["jogadores"])
             preco["jogadores"] = []
             salvar_config(config, interaction.guild_id)
-            view2 = FilaView(ch, self.preco_id, b1, b2)
+            view2 = FilaView(ch, self.preco_id, config=config)
             await interaction.edit_original_response(embed=build_embed_fila(ch, preco, config), view=view2)
             await _fila_completa(interaction, ch, preco, jogadores_partida, config)
 
@@ -2570,8 +2565,7 @@ class _SairBtn(Button):
             await interaction.response.send_message("⚠️ Você não está nesta fila!", ephemeral=True); return
         preco["jogadores"].remove(uid)
         salvar_config(config, interaction.guild_id)
-        b1, b2 = config[ch]["botao1"], config[ch]["botao2"]
-        await interaction.response.edit_message(embed=build_embed_fila(ch, preco, config), view=FilaView(ch, self.preco_id, b1, b2))
+        await interaction.response.edit_message(embed=build_embed_fila(ch, preco, config), view=FilaView(ch, self.preco_id, config=config))
 
 
 class _LimparBtn(Button):
@@ -2594,8 +2588,7 @@ class _LimparBtn(Button):
             await interaction.response.send_message("❌ Esta fila não existe mais.", ephemeral=True); return
         preco["jogadores"] = []
         salvar_config(config, interaction.guild_id)
-        b1, b2 = config[ch]["botao1"], config[ch]["botao2"]
-        await interaction.response.edit_message(embed=build_embed_fila(ch, preco, config), view=FilaView(ch, self.preco_id, b1, b2))
+        await interaction.response.edit_message(embed=build_embed_fila(ch, preco, config), view=FilaView(ch, self.preco_id, config=config))
         await interaction.followup.send(f"🗑️ Fila limpa por {interaction.user.mention}.")
 
 
@@ -4065,10 +4058,8 @@ class MyBot(discord.Client):
                 _cfg = carregar_config(_gid)
                 for ch in ALL_MODOS:
                     try:
-                        b1 = _cfg[ch]["botao1"]
-                        b2 = _cfg[ch]["botao2"]
                         for preco in _cfg[ch].get("precos", []):
-                            self.add_view(FilaView(ch, preco["id"], b1, b2))
+                            self.add_view(FilaView(ch, preco["id"], config=_cfg))
                     except Exception:
                         pass
                 self.add_view(PainelTicketsPublicoView(_cfg))
@@ -4079,10 +4070,8 @@ class MyBot(discord.Client):
             _gcfg = carregar_config()
             for ch in ALL_MODOS:
                 try:
-                    b1 = _gcfg[ch]["botao1"]
-                    b2 = _gcfg[ch]["botao2"]
                     for preco in _gcfg[ch].get("precos", []):
-                        self.add_view(FilaView(ch, preco["id"], b1, b2))
+                        self.add_view(FilaView(ch, preco["id"], config=_gcfg))
                 except Exception:
                     pass
             self.add_view(PainelTicketsPublicoView(_gcfg))
