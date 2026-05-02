@@ -9,10 +9,14 @@ import uuid
 import re
 import threading
 import http.server
+import secrets
+import datetime
 from pathlib import Path
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
+BOT_OWNER_ID = int(os.environ.get("BOT_OWNER_ID", "0"))
 CONFIG_FILE = Path(__file__).parent / "config.json"
+KEYS_FILE   = Path(__file__).parent / "keys.json"
 
 # ──────────────────────────────────────────────
 # Estrutura de categorias e modos
@@ -39,6 +43,149 @@ EMOJI_MODO = {"1v1": "⚔️", "2v2": "👥", "3v3": "🛡️", "4v4": "🎮"}
 JOGADORES_MODO = {"1v1": 2, "2v2": 4, "3v3": 6, "4v4": 8}
 
 COR_PADRAO = 0x2ECC71
+
+# ──────────────────────────────────────────────
+# Sistema de Keys / Planos
+# ──────────────────────────────────────────────
+
+PLANOS = ["bronze", "prata", "ouro", "platina"]
+
+PLANO_EMOJI = {
+    "bronze":  "🥉",
+    "prata":   "🥈",
+    "ouro":    "🥇",
+    "platina": "💎",
+}
+
+# Quais features cada plano desbloqueia
+PLANOS_PERMISSOES: dict[str, set[str]] = {
+    "bronze":  {"filas", "criarfilas", "filas_toggle", "mediador", "vencedor", "limpar"},
+    "prata":   {"filas", "criarfilas", "filas_toggle", "mediador", "vencedor", "limpar",
+                "streamer", "tickets"},
+    "ouro":    {"filas", "criarfilas", "filas_toggle", "mediador", "vencedor", "limpar",
+                "streamer", "tickets", "aparencia"},
+    "platina": {"filas", "criarfilas", "filas_toggle", "mediador", "vencedor", "limpar",
+                "streamer", "tickets", "aparencia", "tudo"},
+}
+
+# Nomes amigáveis das features (para mensagens de erro)
+FEATURE_NOME = {
+    "filas":        "painel de filas",
+    "criarfilas":   "publicar filas",
+    "filas_toggle": "ligar/desligar filas",
+    "mediador":     "painel de mediadores",
+    "vencedor":     "definir vencedor",
+    "limpar":       "limpar canal",
+    "streamer":     "sistema de streamer",
+    "tickets":      "sistema de tickets",
+    "aparencia":    "personalização de aparência",
+    "tudo":         "acesso total",
+}
+
+PLANO_MINIMO = {
+    "filas":        "bronze",
+    "criarfilas":   "bronze",
+    "filas_toggle": "bronze",
+    "mediador":     "bronze",
+    "vencedor":     "bronze",
+    "limpar":       "bronze",
+    "streamer":     "prata",
+    "tickets":      "prata",
+    "aparencia":    "ouro",
+}
+
+
+def carregar_keys() -> dict:
+    if KEYS_FILE.exists():
+        with open(KEYS_FILE, "r", encoding="utf-8") as fp:
+            data = json.load(fp)
+    else:
+        data = {}
+    data.setdefault("keys", {})
+    data.setdefault("guilds", {})
+    return data
+
+
+def salvar_keys(data: dict):
+    with open(KEYS_FILE, "w", encoding="utf-8") as fp:
+        json.dump(data, fp, ensure_ascii=False, indent=2)
+
+
+def _nova_key(plano: str) -> str:
+    partes = [secrets.token_hex(2).upper() for _ in range(4)]
+    return "-".join(partes)
+
+
+def criar_key(plano: str) -> str:
+    """Gera e persiste uma nova key para o plano especificado. Retorna a key."""
+    data = carregar_keys()
+    while True:
+        key = _nova_key(plano)
+        if key not in data["keys"]:
+            break
+    data["keys"][key] = {
+        "plano": plano,
+        "guild_id": None,
+        "ativada": False,
+        "criada_em": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+    }
+    salvar_keys(data)
+    return key
+
+
+def ativar_key(key: str, guild_id: int) -> tuple[bool, str]:
+    """
+    Tenta ativar a key para a guild. 
+    Retorna (sucesso, mensagem).
+    """
+    data = carregar_keys()
+    gid  = str(guild_id)
+    key  = key.strip().upper()
+
+    if key not in data["keys"]:
+        return False, "❌ Key inválida. Verifique se digitou corretamente."
+
+    info = data["keys"][key]
+
+    if info["ativada"]:
+        if info["guild_id"] == gid:
+            return False, f"⚠️ Essa key já está ativada neste servidor (plano **{info['plano'].capitalize()}**)."
+        return False, "❌ Essa key já foi ativada em outro servidor."
+
+    plano_anterior = data["guilds"].get(gid, {}).get("plano")
+
+    info["ativada"] = True
+    info["guild_id"] = gid
+    info["ativada_em"] = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    data["guilds"][gid] = {
+        "plano": info["plano"],
+        "key_usada": key,
+        "ativada_em": info["ativada_em"],
+    }
+    salvar_keys(data)
+
+    msg = f"✅ Key ativada com sucesso! Plano **{PLANO_EMOJI.get(info['plano'],'')} {info['plano'].capitalize()}** habilitado neste servidor."
+    if plano_anterior and plano_anterior != info["plano"]:
+        msg += f"\n> Plano anterior: **{plano_anterior.capitalize()}** → agora **{info['plano'].capitalize()}**."
+    return True, msg
+
+
+def get_plano_guild(guild_id: int) -> str | None:
+    """Retorna o plano ativo da guild, ou None se sem key."""
+    data = carregar_keys()
+    info = data["guilds"].get(str(guild_id))
+    if info:
+        return info.get("plano")
+    return None
+
+
+def guild_tem_feature(guild_id: int, feature: str) -> bool:
+    """True se a guild tem o plano que inclui a feature."""
+    plano = get_plano_guild(guild_id)
+    if not plano:
+        return False
+    return feature in PLANOS_PERMISSOES.get(plano, set())
+
 
 # Lista plana de todas as chaves de modo
 ALL_MODOS: list[str] = [
@@ -3861,6 +4008,57 @@ async def _check_pode_admin(interaction: discord.Interaction) -> bool:
         return False
 
 
+async def _check_plano(interaction: discord.Interaction, feature: str) -> bool:
+    """Verifica se o usuário é admin E se a guild tem o plano necessário para a feature."""
+    try:
+        config = carregar_config()
+        if not usuario_pode_admin(interaction.user, config):
+            await interaction.response.send_message("❌ Você não tem permissão para usar este comando.", ephemeral=True)
+            return False
+
+        if not interaction.guild:
+            await interaction.response.send_message("❌ Use este comando dentro de um servidor.", ephemeral=True)
+            return False
+
+        if guild_tem_feature(interaction.guild.id, feature):
+            return True
+
+        plano_atual = get_plano_guild(interaction.guild.id)
+        minimo = PLANO_MINIMO.get(feature, "bronze")
+        nome_feature = FEATURE_NOME.get(feature, feature)
+
+        if plano_atual is None:
+            msg = (
+                f"🔑 **Key necessária!**\n\n"
+                f"Este servidor ainda não possui uma key ativa.\n"
+                f"Use `/ativar_key` para ativar uma key e liberar os recursos do bot.\n\n"
+                f"> **{nome_feature.capitalize()}** requer plano mínimo: "
+                f"**{PLANO_EMOJI.get(minimo,'')} {minimo.capitalize()}**"
+            )
+        else:
+            emoji_atual = PLANO_EMOJI.get(plano_atual, "")
+            emoji_min   = PLANO_EMOJI.get(minimo, "")
+            msg = (
+                f"🚫 **Plano insuficiente!**\n\n"
+                f"Seu plano atual é **{emoji_atual} {plano_atual.capitalize()}**.\n"
+                f"**{nome_feature.capitalize()}** requer o plano **{emoji_min} {minimo.capitalize()}** ou superior.\n\n"
+                f"> Adquira uma key de plano superior e use `/ativar_key` para upgrade."
+            )
+
+        await interaction.response.send_message(msg, ephemeral=True)
+        return False
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"❌ [CHECK PLANO] Erro: {e}")
+        try:
+            await interaction.response.send_message(f"❌ Erro ao verificar permissão: `{e}`", ephemeral=True)
+        except Exception:
+            pass
+        return False
+
+
 # ──────────────────────────────────────────────
 # SISTEMA DE TICKETS
 # ──────────────────────────────────────────────
@@ -4424,7 +4622,7 @@ class _LimparConfirmView(View):
 
 @bot.tree.command(name="limpar", description="Apaga TODAS as mensagens deste canal (com confirmação)")
 async def limpar(interaction: discord.Interaction):
-    if not await _check_pode_admin(interaction):
+    if not await _check_plano(interaction, "limpar"):
         return
     canal = interaction.channel
     if not isinstance(canal, discord.TextChannel):
@@ -4456,7 +4654,7 @@ async def limpar(interaction: discord.Interaction):
 
 @bot.tree.command(name="painel_tickets", description="Abre o painel de configuração do sistema de tickets")
 async def painel_tickets(interaction: discord.Interaction):
-    if not await _check_pode_admin(interaction):
+    if not await _check_plano(interaction, "tickets"):
         return
     config = carregar_config()
     view = PainelTicketsAdminView()
@@ -4471,7 +4669,7 @@ async def painel_tickets(interaction: discord.Interaction):
 @bot.tree.command(name="painel", description="Abre o painel de configuração das filas")
 async def painel(interaction: discord.Interaction):
     import traceback
-    if not await _check_pode_admin(interaction):
+    if not await _check_plano(interaction, "filas"):
         return
     try:
         config = carregar_config()
@@ -4493,7 +4691,7 @@ async def painel(interaction: discord.Interaction):
 
 @bot.tree.command(name="criarfilas", description="Publica os embeds de fila nos canais configurados")
 async def criarfilas(interaction: discord.Interaction):
-    if not await _check_pode_admin(interaction):
+    if not await _check_plano(interaction, "criarfilas"):
         return
     await interaction.response.defer(ephemeral=True)
     config    = carregar_config()
@@ -4506,7 +4704,7 @@ async def criarfilas(interaction: discord.Interaction):
 
 @bot.tree.command(name="painel_mediador", description="Publica o painel de mediadores no canal atual")
 async def painel_mediador(interaction: discord.Interaction):
-    if not await _check_pode_admin(interaction):
+    if not await _check_plano(interaction, "mediador"):
         return
     config = carregar_config()
     embed  = build_embed_painel_mediador(config)
@@ -4521,7 +4719,7 @@ async def painel_mediador(interaction: discord.Interaction):
 
 @bot.tree.command(name="filas_off", description="Desativa as filas (ninguém pode entrar)")
 async def filas_off(interaction: discord.Interaction):
-    if not await _check_pode_admin(interaction):
+    if not await _check_plano(interaction, "filas_toggle"):
         return
     config = carregar_config()
     config["global"]["filas_ativas"] = False
@@ -4532,7 +4730,7 @@ async def filas_off(interaction: discord.Interaction):
 
 @bot.tree.command(name="filas_on", description="Reativa as filas")
 async def filas_on(interaction: discord.Interaction):
-    if not await _check_pode_admin(interaction):
+    if not await _check_plano(interaction, "filas_toggle"):
         return
     config = carregar_config()
     config["global"]["filas_ativas"] = True
@@ -4543,7 +4741,7 @@ async def filas_on(interaction: discord.Interaction):
 
 @bot.tree.command(name="painel_streamer", description="Publica o painel da fila do streamer no canal atual")
 async def painel_streamer(interaction: discord.Interaction):
-    if not await _check_pode_admin(interaction):
+    if not await _check_plano(interaction, "streamer"):
         return
     config = carregar_config()
     embed  = build_embed_painel_streamer(config)
@@ -4556,7 +4754,7 @@ async def painel_streamer(interaction: discord.Interaction):
 @bot.tree.command(name="streamer", description="Define quem é o streamer da fila")
 @app_commands.describe(streamer="Usuário que será o streamer (deixe vazio para limpar)")
 async def streamer_cmd(interaction: discord.Interaction, streamer: discord.Member = None):
-    if not await _check_pode_admin(interaction):
+    if not await _check_plano(interaction, "streamer"):
         return
     config = carregar_config()
     config["global"]["streamer"]["user_id"] = streamer.id if streamer else None
@@ -4572,11 +4770,20 @@ async def streamer_cmd(interaction: discord.Interaction, streamer: discord.Membe
 @app_commands.describe(vencedor="Jogador que venceu a partida (digite o nick para buscar)")
 async def vencedor_cmd(interaction: discord.Interaction, vencedor: discord.Member):
     config = carregar_config()
-    if not (usuario_pode_admin(interaction.user, config) or usuario_e_mediador(interaction.user, config)):
+    eh_admin   = usuario_pode_admin(interaction.user, config)
+    eh_mediador = usuario_e_mediador(interaction.user, config)
+    if not (eh_admin or eh_mediador):
         await interaction.response.send_message(
             "❌ Apenas **administradores**, **permissão máxima** ou **mediadores** podem definir o vencedor.",
             ephemeral=True,
         ); return
+    if eh_admin and interaction.guild and not guild_tem_feature(interaction.guild.id, "vencedor"):
+        plano_atual = get_plano_guild(interaction.guild.id)
+        if plano_atual is None:
+            await interaction.response.send_message(
+                "🔑 **Key necessária!** Este servidor não possui uma key ativa. Use `/ativar_key` para liberar os recursos do bot.",
+                ephemeral=True,
+            ); return
 
     canal = interaction.channel
     if not isinstance(canal, discord.TextChannel) or not (canal.name.startswith("partida-") or canal.name.startswith("streamer-")):
@@ -4640,7 +4847,7 @@ async def vencedor_cmd(interaction: discord.Interaction, vencedor: discord.Membe
 
 @bot.tree.command(name="aparencia", description="Personalize a aparência do bot neste servidor (apelido, foto, banner, bio)")
 async def aparencia(interaction: discord.Interaction):
-    if not await _check_pode_admin(interaction):
+    if not await _check_plano(interaction, "aparencia"):
         return
     if not interaction.guild:
         await interaction.response.send_message("❌ Use este comando dentro de um servidor.", ephemeral=True); return
@@ -4650,6 +4857,130 @@ async def aparencia(interaction: discord.Interaction):
         view=AparenciaView(),
         ephemeral=True,
     )
+
+
+# ──────────────────────────────────────────────
+# SISTEMA DE KEYS — COMANDOS
+# ──────────────────────────────────────────────
+
+@bot.tree.command(name="gerar_key", description="[OWNER] Gera uma ou mais keys de um plano específico")
+@app_commands.describe(
+    plano="Plano da key: bronze, prata, ouro ou platina",
+    quantidade="Quantidade de keys a gerar (padrão: 1, máx: 20)",
+)
+async def gerar_key_cmd(interaction: discord.Interaction, plano: str, quantidade: int = 1):
+    if interaction.user.id != BOT_OWNER_ID:
+        await interaction.response.send_message("❌ Apenas o dono do bot pode usar este comando.", ephemeral=True)
+        return
+
+    plano = plano.lower().strip()
+    if plano not in PLANOS:
+        await interaction.response.send_message(
+            f"❌ Plano inválido. Use um dos seguintes: `{'`, `'.join(PLANOS)}`",
+            ephemeral=True,
+        )
+        return
+
+    quantidade = max(1, min(20, quantidade))
+
+    keys_geradas = [criar_key(plano) for _ in range(quantidade)]
+
+    emoji = PLANO_EMOJI.get(plano, "")
+    linhas = "\n".join(f"`{k}`" for k in keys_geradas)
+    embed = discord.Embed(
+        title=f"{emoji} Keys Geradas — Plano {plano.capitalize()}",
+        description=linhas,
+        color=discord.Color.gold(),
+    )
+    embed.set_footer(text=f"{quantidade} key(s) gerada(s) • Cada key ativa apenas 1 servidor")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@bot.tree.command(name="ativar_key", description="Ativa uma key neste servidor para liberar os recursos do plano")
+@app_commands.describe(key="Key recebida (formato: XXXX-XXXX-XXXX-XXXX)")
+async def ativar_key_cmd(interaction: discord.Interaction, key: str):
+    config = carregar_config()
+    if not usuario_pode_admin(interaction.user, config):
+        await interaction.response.send_message("❌ Apenas administradores podem ativar keys.", ephemeral=True)
+        return
+    if not interaction.guild:
+        await interaction.response.send_message("❌ Use este comando dentro de um servidor.", ephemeral=True)
+        return
+
+    sucesso, msg = ativar_key(key, interaction.guild.id)
+
+    if sucesso:
+        plano = get_plano_guild(interaction.guild.id)
+        emoji = PLANO_EMOJI.get(plano, "")
+        feats  = PLANOS_PERMISSOES.get(plano, set())
+        linhas = "\n".join(f"✅ {FEATURE_NOME.get(f, f).capitalize()}" for f in sorted(feats) if f != "tudo")
+        embed = discord.Embed(
+            title=f"{emoji} Plano {plano.capitalize()} Ativado!",
+            description=msg + f"\n\n**Recursos liberados:**\n{linhas}",
+            color=discord.Color.green(),
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+    else:
+        await interaction.response.send_message(msg, ephemeral=True)
+
+
+@bot.tree.command(name="minha_key", description="Mostra as informações do plano ativo neste servidor")
+async def minha_key_cmd(interaction: discord.Interaction):
+    if not interaction.guild:
+        await interaction.response.send_message("❌ Use este comando dentro de um servidor.", ephemeral=True)
+        return
+
+    plano = get_plano_guild(interaction.guild.id)
+
+    if plano is None:
+        embed = discord.Embed(
+            title="🔑 Sem plano ativo",
+            description=(
+                "Este servidor ainda **não possui uma key ativa**.\n\n"
+                "Use `/ativar_key` com uma key válida para liberar os recursos do bot.\n\n"
+                "**Planos disponíveis:**\n"
+                + "\n".join(
+                    f"{PLANO_EMOJI.get(p,'')} **{p.capitalize()}** — "
+                    + ", ".join(FEATURE_NOME.get(f, f) for f in sorted(PLANOS_PERMISSOES[p]) if f != "tudo")
+                    for p in PLANOS
+                )
+            ),
+            color=discord.Color.red(),
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+
+    emoji  = PLANO_EMOJI.get(plano, "")
+    feats  = PLANOS_PERMISSOES.get(plano, set())
+    data   = carregar_keys()
+    info_g = data["guilds"].get(str(interaction.guild.id), {})
+
+    linhas_feat = "\n".join(
+        f"✅ {FEATURE_NOME.get(f, f).capitalize()}"
+        for f in sorted(feats) if f != "tudo"
+    )
+
+    nao_inclusos = [
+        f for p in PLANOS for f in PLANOS_PERMISSOES[p]
+        if f not in feats and f != "tudo"
+    ]
+    linhas_bloq = "\n".join(
+        f"🔒 {FEATURE_NOME.get(f, f).capitalize()}"
+        for f in sorted(set(nao_inclusos))
+    ) or "—"
+
+    embed = discord.Embed(
+        title=f"{emoji} Plano {plano.capitalize()}",
+        color=discord.Color.gold() if plano == "ouro" else
+              discord.Color.from_str("#b9f2ff") if plano == "platina" else
+              discord.Color.from_str("#CD7F32") if plano == "bronze" else
+              discord.Color.light_grey(),
+    )
+    embed.add_field(name="✅ Recursos inclusos",    value=linhas_feat, inline=True)
+    embed.add_field(name="🔒 Não inclusos",          value=linhas_bloq, inline=True)
+    if info_g.get("ativada_em"):
+        embed.set_footer(text=f"Ativada em: {info_g['ativada_em']}")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 def _run_health_server():
