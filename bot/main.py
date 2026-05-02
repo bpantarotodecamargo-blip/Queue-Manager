@@ -15,8 +15,9 @@ from pathlib import Path
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
 BOT_OWNER_ID = int(os.environ.get("BOT_OWNER_ID", "0"))
-CONFIG_FILE = Path(__file__).parent / "config.json"
-KEYS_FILE   = Path(__file__).parent / "keys.json"
+CONFIG_FILE   = Path(__file__).parent / "config.json"
+KEYS_FILE     = Path(__file__).parent / "keys.json"
+INVITES_FILE  = Path(__file__).parent / "invites.json"
 
 # ──────────────────────────────────────────────
 # Estrutura de categorias e modos
@@ -388,18 +389,19 @@ def carregar_config() -> dict:
     g.setdefault("cargo_autorole_id",  None)   # cargo dado automaticamente a novos membros
     g.setdefault("categoria_id",       None)
     g.setdefault("logs", {
-        "iniciadas":     None,   # logs-iniciadas — quando uma partida começa
-        "confirmadas":   None,   # logs-confirmadas — quando todos confirmam
-        "cancelada":     None,   # logs-cancelada — quando alguém cancela
-        "finalizadas":   None,   # logs-finalizadas — quando /vencedor é usado
-        "mediador":      None,   # logs-mediador — entrar/sair/puxar mediador
-        "ticket":        None,   # logs-ticket — abertura/fechamento de tickets
-        "vitorias_ws":   None,   # logs-vitorias-ws — vencedores de partida do streamer
-        "saiu_servidor": None,   # saiu-do-servidor — quando alguém sai do servidor
+        "iniciadas":     None,
+        "confirmadas":   None,
+        "cancelada":     None,
+        "finalizadas":   None,
+        "mediador":      None,
+        "ticket":        None,
+        "vitorias_ws":   None,
+        "saiu_servidor": None,
+        "entradas":      None,   # logs-entradas — quem entrou e quem convidou
     })
     _logs = g["logs"]
     for k in ("iniciadas", "confirmadas", "cancelada", "finalizadas",
-              "mediador", "ticket", "vitorias_ws", "saiu_servidor"):
+              "mediador", "ticket", "vitorias_ws", "saiu_servidor", "entradas"):
         _logs.setdefault(k, None)
     g.setdefault("filas_ativas",       True)
     g.setdefault("embed_global", {
@@ -559,14 +561,15 @@ def salvar_config(config: dict):
 # ──────────────────────────────────────────────
 
 LOG_TIPOS = [
-    ("iniciadas",     "📥  Logs Iniciadas",     "Quando uma partida começa (canal criado).",        0x3498DB),
-    ("confirmadas",   "✅  Logs Confirmadas",   "Quando todos os jogadores confirmam presença.",     0x2ECC71),
-    ("cancelada",     "❌  Logs Cancelada",     "Quando uma aposta é cancelada por alguém.",         0xE74C3C),
-    ("finalizadas",   "🏆  Logs Finalizadas",   "Quando o vencedor é definido com /vencedor.",       0xF1C40F),
+    ("iniciadas",     "📥  Logs Iniciadas",     "Quando uma partida começa (canal criado).",           0x3498DB),
+    ("confirmadas",   "✅  Logs Confirmadas",   "Quando todos os jogadores confirmam presença.",        0x2ECC71),
+    ("cancelada",     "❌  Logs Cancelada",     "Quando uma aposta é cancelada por alguém.",            0xE74C3C),
+    ("finalizadas",   "🏆  Logs Finalizadas",   "Quando o vencedor é definido com /vencedor.",          0xF1C40F),
     ("mediador",      "🤝  Logs Mediador",      "Mediadores entrando/saindo da fila ou sendo puxados.", 0x9B59B6),
-    ("ticket",        "🎫  Logs Ticket",        "Tickets abertos e fechados.",                        0x1ABC9C),
-    ("vitorias_ws",   "🎬  Logs Vitórias WS",   "Vencedores de partidas do streamer.",               0xE91E63),
-    ("saiu_servidor", "👋  Saiu do Servidor",   "Quando um membro sai do servidor.",                  0x95A5A6),
+    ("ticket",        "🎫  Logs Ticket",        "Tickets abertos e fechados.",                         0x1ABC9C),
+    ("vitorias_ws",   "🎬  Logs Vitórias WS",   "Vencedores de partidas do streamer.",                0xE91E63),
+    ("saiu_servidor", "👋  Saiu do Servidor",   "Quando um membro sai do servidor.",                   0x95A5A6),
+    ("entradas",      "🚪  Entradas/Invites",   "Quem entrou, quem convidou e contagem do servidor.",  0x57F287),
 ]
 
 LOG_LABEL = {k: l for k, l, _, _ in LOG_TIPOS}
@@ -2447,6 +2450,56 @@ class _LimparBtn(Button):
 # ──────────────────────────────────────────────
 
 # Dicionário {channel_id: message_id} para rastrear painéis de mediador publicados (em RAM)
+# ──────────────────────────────────────────────
+# Sistema de Invites — cache e armazenamento
+# ──────────────────────────────────────────────
+
+# Cache em memória: guild_id → {invite_code: uses}
+_invite_cache: dict[int, dict[str, int]] = {}
+
+
+def carregar_invites() -> dict:
+    """Carrega o arquivo de contagem de invites por usuário por guild."""
+    if INVITES_FILE.exists():
+        with open(INVITES_FILE, "r", encoding="utf-8") as fp:
+            return json.load(fp)
+    return {}
+
+
+def salvar_invites(data: dict):
+    with open(INVITES_FILE, "w", encoding="utf-8") as fp:
+        json.dump(data, fp, ensure_ascii=False, indent=2)
+
+
+def registrar_invite(guild_id: int, inviter_id: int, novo_membro_id: int):
+    """Incrementa a contagem de convites do inviter e registra quem entrou."""
+    data = carregar_invites()
+    gid  = str(guild_id)
+    uid  = str(inviter_id)
+    data.setdefault(gid, {})
+    data[gid].setdefault(uid, {"total": 0, "membros": []})
+    data[gid][uid]["total"] += 1
+    mid = str(novo_membro_id)
+    if mid not in data[gid][uid]["membros"]:
+        data[gid][uid]["membros"].append(mid)
+    salvar_invites(data)
+
+
+def get_total_invites(guild_id: int, user_id: int) -> int:
+    """Retorna o total de convites válidos do usuário na guild."""
+    data = carregar_invites()
+    return data.get(str(guild_id), {}).get(str(user_id), {}).get("total", 0)
+
+
+async def _cache_invites_guild(guild: discord.Guild):
+    """Atualiza o cache de invites de uma guild."""
+    try:
+        invites = await guild.invites()
+        _invite_cache[guild.id] = {inv.code: inv.uses for inv in invites}
+    except Exception as e:
+        print(f"⚠️ [INVITES] Erro ao cachear invites de '{guild.name}': {e}")
+
+
 _painel_mediador_msgs: dict[int, int] = {}
 
 
@@ -3843,6 +3896,7 @@ class MyBot(discord.Client):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
+        intents.invites = True
         super().__init__(intents=intents)
         self.tree = app_commands.CommandTree(self)
 
@@ -3902,6 +3956,9 @@ class MyBot(discord.Client):
         await self.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name="as filas 🎮"))
         asyncio.create_task(_renovar_filas_on())
         asyncio.create_task(_verificar_keys_expiradas())
+        # Cacheia invites de todos os servidores
+        for guild in self.guilds:
+            await _cache_invites_guild(guild)
 
     async def on_guild_join(self, guild: discord.Guild):
         try:
@@ -3910,11 +3967,81 @@ class MyBot(discord.Client):
             print(f"✅ Comandos sincronizados ao entrar em '{guild.name}'")
         except Exception as e:
             print(f"⚠️ Erro ao sincronizar em '{guild.name}': {e}")
+        await _cache_invites_guild(guild)
+
+    async def on_invite_create(self, invite: discord.Invite):
+        if invite.guild:
+            _invite_cache.setdefault(invite.guild.id, {})[invite.code] = invite.uses or 0
+
+    async def on_invite_delete(self, invite: discord.Invite):
+        if invite.guild:
+            _invite_cache.get(invite.guild.id, {}).pop(invite.code, None)
 
     async def on_member_join(self, member: discord.Member):
-        # Autorole — dá um cargo automaticamente para novos membros
         if member.bot:
             return
+
+        # ── Detectar qual invite foi usado ──────────────────────────
+        inviter      = None
+        invite_code  = None
+        invite_uses  = None
+        try:
+            old_cache   = _invite_cache.get(member.guild.id, {})
+            new_invites = await member.guild.invites()
+            new_cache   = {inv.code: inv.uses for inv in new_invites}
+            _invite_cache[member.guild.id] = new_cache
+
+            for inv in new_invites:
+                if new_cache.get(inv.code, 0) > old_cache.get(inv.code, 0):
+                    inviter     = inv.inviter
+                    invite_code = inv.code
+                    invite_uses = inv.uses
+                    break
+        except Exception as e:
+            print(f"⚠️ [INVITES] Erro ao detectar invite em '{member.guild.name}': {e}")
+
+        # ── Registrar contagem de invites ────────────────────────────
+        if inviter:
+            try:
+                registrar_invite(member.guild.id, inviter.id, member.id)
+            except Exception as e:
+                print(f"⚠️ [INVITES] Erro ao registrar: {e}")
+
+        # ── Log de entrada ───────────────────────────────────────────
+        try:
+            cfg = carregar_config()
+            conta_criada = discord.utils.format_dt(member.created_at, style="R") if member.created_at else "—"
+            total_membros = member.guild.member_count
+
+            if inviter:
+                total_inv = get_total_invites(member.guild.id, inviter.id)
+                convidado_por = (
+                    f"{inviter.mention} (`{inviter}`)\n"
+                    f"↳ Código: `{invite_code}` • Total de invites: **{total_inv}**"
+                )
+            else:
+                convidado_por = "`Não identificado`"
+
+            emb = discord.Embed(
+                title="🚪  Novo Membro Entrou!",
+                description=(
+                    f"## {member.mention}\n"
+                    f"`{member}` — ID: `{member.id}`"
+                ),
+                color=0x57F287,
+            )
+            emb.set_thumbnail(url=member.display_avatar.url if member.display_avatar else None)
+            emb.add_field(name="👤 Usuário",       value=member.mention,      inline=True)
+            emb.add_field(name="🎟️ Convidado por", value=convidado_por,       inline=False)
+            emb.add_field(name="📅 Conta criada",  value=conta_criada,        inline=True)
+            emb.add_field(name="👥 Membros no servidor", value=f"**{total_membros}** membros", inline=True)
+            emb.timestamp = discord.utils.utcnow()
+            emb.set_footer(text=f"ID: {member.id}")
+            await _send_log(member.guild, "entradas", embed=emb, config=cfg)
+        except Exception as e:
+            print(f"⚠️ [INVITES] Erro ao enviar log de entrada: {e}")
+
+        # ── Autorole ─────────────────────────────────────────────────
         try:
             cfg = carregar_config()
             cargo_id = cfg.get("global", {}).get("cargo_autorole_id")
@@ -3927,7 +4054,7 @@ class MyBot(discord.Client):
             await member.add_roles(cargo, reason="Autorole — novo membro")
             print(f"🎟️ Autorole aplicado: {cargo.name} → {member} ({member.guild.name})")
         except discord.Forbidden:
-            print(f"⚠️ Autorole: sem permissão para dar cargo em '{member.guild.name}'. Verifique a hierarquia e a permissão 'Gerenciar Cargos'.")
+            print(f"⚠️ Autorole: sem permissão para dar cargo em '{member.guild.name}'.")
         except Exception as e:
             print(f"⚠️ Autorole: erro ao aplicar cargo: {e}")
 
@@ -5147,6 +5274,85 @@ async def minha_key_cmd(interaction: discord.Interaction):
         embed.set_footer(text=" • ".join(footer_parts))
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+# ──────────────────────────────────────────────
+# SISTEMA DE INVITES — COMANDOS
+# ──────────────────────────────────────────────
+
+@bot.tree.command(name="meus_invites", description="Veja quantas pessoas você convidou para o servidor")
+@app_commands.describe(usuario="Usuário para verificar (deixe vazio para ver os seus)")
+async def meus_invites_cmd(interaction: discord.Interaction, usuario: discord.Member = None):
+    if not interaction.guild:
+        await interaction.response.send_message("❌ Use este comando dentro de um servidor.", ephemeral=True)
+        return
+
+    alvo = usuario or interaction.user
+    total = get_total_invites(interaction.guild.id, alvo.id)
+
+    data = carregar_invites()
+    membros_ids = data.get(str(interaction.guild.id), {}).get(str(alvo.id), {}).get("membros", [])
+
+    # Filtra apenas membros que ainda estão no servidor
+    membros_ativos = []
+    for mid in membros_ids:
+        m = interaction.guild.get_member(int(mid))
+        if m:
+            membros_ativos.append(m)
+
+    embed = discord.Embed(
+        title=f"🎟️ Invites de {alvo.display_name}",
+        color=0x57F287,
+    )
+    embed.set_thumbnail(url=alvo.display_avatar.url if alvo.display_avatar else None)
+    embed.add_field(name="📊 Total de invites",     value=f"**{total}**",                    inline=True)
+    embed.add_field(name="✅ Ainda no servidor",    value=f"**{len(membros_ativos)}**",       inline=True)
+    embed.add_field(name="👥 Membros no servidor",  value=f"**{interaction.guild.member_count}**", inline=True)
+
+    if membros_ativos:
+        lista = "\n".join(f"• {m.mention}" for m in membros_ativos[:10])
+        if len(membros_ativos) > 10:
+            lista += f"\n_...e mais {len(membros_ativos) - 10}_"
+        embed.add_field(name="🏠 Quem ainda está aqui", value=lista, inline=False)
+
+    embed.set_footer(text=f"Servidor: {interaction.guild.name}")
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.command(name="top_invites", description="Mostra o ranking de quem mais convidou pessoas para o servidor")
+async def top_invites_cmd(interaction: discord.Interaction):
+    if not interaction.guild:
+        await interaction.response.send_message("❌ Use este comando dentro de um servidor.", ephemeral=True)
+        return
+
+    data = carregar_invites()
+    guild_data = data.get(str(interaction.guild.id), {})
+
+    if not guild_data:
+        await interaction.response.send_message("📭 Nenhum invite registrado neste servidor ainda.", ephemeral=True)
+        return
+
+    # Ordena por total de invites
+    ranking = sorted(guild_data.items(), key=lambda x: x[1].get("total", 0), reverse=True)
+
+    medalhas = ["🥇", "🥈", "🥉"]
+    linhas = []
+    for i, (uid, info) in enumerate(ranking[:10]):
+        membro = interaction.guild.get_member(int(uid))
+        nome   = membro.mention if membro else f"`{uid}`"
+        total  = info.get("total", 0)
+        ainda  = sum(1 for mid in info.get("membros", []) if interaction.guild.get_member(int(mid)))
+        medal  = medalhas[i] if i < 3 else f"`#{i+1}`"
+        linhas.append(f"{medal} {nome} — **{total}** convite(s) · {ainda} ainda aqui")
+
+    embed = discord.Embed(
+        title=f"🏆 Top Inviters — {interaction.guild.name}",
+        description="\n".join(linhas) or "Nenhum dado ainda.",
+        color=0xF1C40F,
+    )
+    embed.add_field(name="👥 Total de membros", value=f"**{interaction.guild.member_count}**", inline=True)
+    embed.set_footer(text="Apenas convites rastreados pelo bot são contabilizados.")
+    await interaction.response.send_message(embed=embed)
 
 
 def _run_health_server():
