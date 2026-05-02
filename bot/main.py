@@ -5627,17 +5627,27 @@ def _embeds_regras_geral() -> list[discord.Embed]:
 
 
 @bot.tree.command(name="regras", description="Envia as regras do apostado neste canal")
-@app_commands.describe(tipo="Qual regra enviar")
+@app_commands.describe(
+    tipo="Qual regra enviar",
+    canal="Canal onde as regras serão enviadas (padrão: canal atual)",
+)
 @app_commands.choices(tipo=[
-    app_commands.Choice(name="X1 (1x1)",              value="x1"),
-    app_commands.Choice(name="Regras Gerais",         value="geral"),
-    app_commands.Choice(name="Todas as regras",       value="todas"),
+    app_commands.Choice(name="X1 (1x1)",        value="x1"),
+    app_commands.Choice(name="Regras Gerais",   value="geral"),
+    app_commands.Choice(name="Todas as regras", value="todas"),
 ])
-async def regras_cmd(interaction: discord.Interaction, tipo: app_commands.Choice[str]):
+async def regras_cmd(
+    interaction: discord.Interaction,
+    tipo: app_commands.Choice[str],
+    canal: discord.TextChannel = None,
+):
     if not await _check_plano(interaction, "regras"):
         return
 
-    await interaction.response.defer()
+    destino = canal or interaction.channel
+    enviando_em_outro = canal is not None and canal.id != interaction.channel_id
+
+    await interaction.response.defer(ephemeral=True)
 
     embeds: list[discord.Embed] = []
     if tipo.value == "x1":
@@ -5647,13 +5657,25 @@ async def regras_cmd(interaction: discord.Interaction, tipo: app_commands.Choice
     else:
         embeds = _embeds_regras_x1() + _embeds_regras_geral()
 
-    # Discord aceita máximo 10 embeds por mensagem
-    for i in range(0, len(embeds), 10):
-        chunk = embeds[i:i+10]
-        if i == 0:
-            await interaction.followup.send(embeds=chunk)
-        else:
-            await interaction.channel.send(embeds=chunk)
+    # Envia os embeds no canal destino (máx 10 por mensagem)
+    try:
+        for i in range(0, len(embeds), 10):
+            await destino.send(embeds=embeds[i:i+10])
+    except discord.Forbidden:
+        await interaction.followup.send(
+            f"❌ Não tenho permissão para enviar mensagens em {destino.mention}.",
+            ephemeral=True,
+        )
+        return
+
+    # Confirmação discreta (ephemeral) para quem usou o comando
+    if enviando_em_outro:
+        await interaction.followup.send(
+            f"✅ Regras **{tipo.name}** enviadas em {destino.mention}.",
+            ephemeral=True,
+        )
+    else:
+        await interaction.followup.send("✅ Regras enviadas.", ephemeral=True)
 
 
 def _run_health_server():
